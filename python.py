@@ -14,7 +14,9 @@ try:
 except Exception:
     serial = None
 
-from Login import init_db, LoginDialog
+# Importar solo LoginDialog (no init_db, porque ya no usamos DB)
+from Login import LoginDialog
+
 
 class SerialThread(QThread):
     line_received = pyqtSignal(str)
@@ -65,12 +67,13 @@ class SerialThread(QThread):
         if self.ser and self.ser.is_open:
             self.ser.write((data + "\n").encode())
 
+
 class MainWindow(QWidget):
     def __init__(self, username):
         super().__init__()
         self.setWindowTitle(f"Contador LEDs - Usuario: {username}")
         self.resize(700, 400)
-        self.counters = [0,0,0]
+        self.counters = [0, 0, 0]
         self.history = []
         self.serial_thread = None
 
@@ -170,7 +173,7 @@ class MainWindow(QWidget):
                 idx = int(line.split(":")[1]) - 1
                 if 0 <= idx < 3:
                     self.counters[idx] += 1
-                    self.history.append((datetime.now().isoformat(), idx+1, "ON"))
+                    self.history.append((datetime.now().isoformat(), idx + 1, "ON"))
                     self.lbl_states[idx].setText("ON")
                     self.update_ui()
             except Exception:
@@ -204,7 +207,7 @@ class MainWindow(QWidget):
             self.lbl_states[idx].setText("ON" if val == "1" else "OFF")
             if val == "1":
                 self.counters[idx] += 1
-                self.history.append((datetime.now().isoformat(), idx+1, "ON (GUI)"))
+                self.history.append((datetime.now().isoformat(), idx + 1, "ON (GUI)"))
             self.update_ui()
 
     def reset_counter(self, idx):
@@ -215,7 +218,7 @@ class MainWindow(QWidget):
         fn = f"historial_{int(time.time())}.csv"
         with open(fn, "w", newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(["timestamp","led","action"])
+            writer.writerow(["timestamp", "led", "action"])
             for row in self.history:
                 writer.writerow(row)
         QMessageBox.information(self, "Exportado", f"Historial guardado en {fn}")
@@ -225,9 +228,8 @@ class MainWindow(QWidget):
             self.serial_thread.stop()
         super().closeEvent(event)
 
-def main():
-    init_db()  
 
+def main():
     app = QApplication(sys.argv)
 
     login = LoginDialog()
@@ -239,6 +241,7 @@ def main():
     else:
         print("Login cancelado.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
