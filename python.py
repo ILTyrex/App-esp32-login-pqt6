@@ -2,9 +2,9 @@
 import sys, time
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QGridLayout, QGroupBox, QMessageBox, QLineEdit, QComboBox, QDialog
+    QGridLayout, QMessageBox, QComboBox, QDialog
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from datetime import datetime
 import csv
 
@@ -14,10 +14,9 @@ try:
 except Exception:
     serial = None
 
-# Importar solo LoginDialog (no init_db, porque ya no usamos DB)
 from Login import LoginDialog
 
-
+# ----------------- Hilo serial -----------------
 class SerialThread(QThread):
     line_received = pyqtSignal(str)
     connected = pyqtSignal(bool)
@@ -30,6 +29,7 @@ class SerialThread(QThread):
         self.ser = None
 
     def run(self):
+        # Si pyserial no está, indicar desconectado
         if serial is None:
             self.connected.emit(False)
             return
@@ -68,23 +68,29 @@ class SerialThread(QThread):
             self.ser.write((data + "\n").encode())
 
 
+# ----------------- Ventana principal simplificada -----------------
 class MainWindow(QWidget):
     def __init__(self, username):
         super().__init__()
+        self.username = username
         self.setWindowTitle(f"Contador LEDs - Usuario: {username}")
-        self.resize(700, 400)
-        self.counters = [0, 0, 0]
+        self.resize(520, 300)
+
+        self.total_counter = 0
+
+        self.led_states = [False, False, False]
+
         self.history = []
+
         self.serial_thread = None
 
         self.build_ui()
         self.update_ui()
 
     def build_ui(self):
-        layout = QVBoxLayout()
+        main = QVBoxLayout()
 
-        # Config serial
-        cfg_layout = QHBoxLayout()
+        conn_layout = QHBoxLayout()
         self.port_combo = QComboBox()
         ports = []
         if serial is not None:
@@ -95,54 +101,53 @@ class MainWindow(QWidget):
         self.port_combo.addItems(ports)
         self.connect_btn = QPushButton("Conectar")
         self.connect_btn.clicked.connect(self.toggle_connection)
-        cfg_layout.addWidget(QLabel("Puerto:"))
-        cfg_layout.addWidget(self.port_combo)
-        cfg_layout.addWidget(self.connect_btn)
-        layout.addLayout(cfg_layout)
+        conn_layout.addWidget(QLabel("Puerto:"))
+        conn_layout.addWidget(self.port_combo)
+        conn_layout.addWidget(self.connect_btn)
+        main.addLayout(conn_layout)
 
-        # Cards for 3 LEDs
-        grid = QGridLayout()
-        self.lbl_states = []
-        self.lbl_counts = []
+        ctr_layout = QHBoxLayout()
+        self.counter_label = QLabel("Contador total: 0")
+        self.counter_label.setStyleSheet("font-weight:bold; font-size:16px;")
+        ctr_layout.addWidget(self.counter_label)
+        ctr_layout.addStretch()
+        self.reset_btn = QPushButton("Reset contador")
+        self.reset_btn.clicked.connect(self.reset_total)
+        ctr_layout.addWidget(self.reset_btn)
+        main.addLayout(ctr_layout)
+
+        # Botones para cada LED (toggle) + etiqueta de estado
+        leds_layout = QGridLayout()
+        self.led_buttons = []
+        self.led_state_labels = []
         for i in range(3):
-            box = QGroupBox(f"LED {i+1}")
-            v = QVBoxLayout()
-            state = QLabel("OFF")
-            state.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            state.setStyleSheet("font-weight:bold;")
-            count = QLabel("0")
-            count.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            btn_gui = QPushButton("Toggle GUI")
-            btn_gui.clicked.connect(lambda _, x=i: self.toggle_led_gui(x))
-            btn_reset = QPushButton("Reset contador")
-            btn_reset.clicked.connect(lambda _, x=i: self.reset_counter(x))
-            v.addWidget(state)
-            v.addWidget(QLabel("Contador:"))
-            v.addWidget(count)
-            v.addWidget(btn_gui)
-            v.addWidget(btn_reset)
-            box.setLayout(v)
-            grid.addWidget(box, 0, i)
-            self.lbl_states.append(state)
-            self.lbl_counts.append(count)
+            btn = QPushButton(f"Encender/Apagar LED {i+1}")
+            btn.clicked.connect(lambda _, x=i: self.toggle_led_gui(x))
+            state_lbl = QLabel("OFF")
+            state_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            state_lbl.setStyleSheet("font-weight:bold;")
+            self.led_buttons.append(btn)
+            self.led_state_labels.append(state_lbl)
+            leds_layout.addWidget(btn, i, 0)
+            leds_layout.addWidget(state_lbl, i, 1)
+        main.addLayout(leds_layout)
 
-        layout.addLayout(grid)
-
-        # Total y export
+        # Botón exportar historial (opcional)
         bottom = QHBoxLayout()
-        self.total_label = QLabel("Total: 0")
-        save_btn = QPushButton("Exportar historial CSV")
-        save_btn.clicked.connect(self.export_csv)
-        bottom.addWidget(self.total_label)
+        self.export_btn = QPushButton("Exportar historial CSV")
+        self.export_btn.clicked.connect(self.export_csv)
         bottom.addStretch()
-        bottom.addWidget(save_btn)
-        layout.addLayout(bottom)
+        bottom.addWidget(self.export_btn)
+        main.addLayout(bottom)
 
-        # Eventos (simple)
         self.event_label = QLabel("Eventos recientes:")
-        layout.addWidget(self.event_label)
+        main.addWidget(self.event_label)
 
-        self.setLayout(layout)
+        if serial is None:
+            note = QLabel("<i>pyserial no instalado: la app funciona en modo simulación (sin puerto físico).</i>")
+            main.addWidget(note)
+
+        self.setLayout(main)
 
     def toggle_connection(self):
         if self.serial_thread and self.serial_thread.isRunning():
@@ -150,10 +155,12 @@ class MainWindow(QWidget):
             self.serial_thread = None
             self.connect_btn.setText("Conectar")
             return
+
         port = self.port_combo.currentText()
         if not port:
-            QMessageBox.warning(self, "Error", "Selecciona un puerto serial.")
+            QMessageBox.warning(self, "Error", "Selecciona un puerto serial (o instala pyserial).")
             return
+
         self.serial_thread = SerialThread(port, 115200)
         self.serial_thread.line_received.connect(self.on_line)
         self.serial_thread.connected.connect(self.on_connected)
@@ -162,56 +169,72 @@ class MainWindow(QWidget):
     def on_connected(self, ok):
         if ok:
             self.connect_btn.setText("Desconectar")
+            QMessageBox.information(self, "Serial", "Conectado al puerto serial.")
         else:
             self.connect_btn.setText("Conectar")
             QMessageBox.critical(self, "Serial", "No se pudo conectar al puerto (o pyserial no está instalado).")
 
     def on_line(self, line: str):
+        """Maneja mensajes desde ESP32. Protocolo: BTN:n  o ACK:LED:n:v"""
         print("FROM ESP32:", line)
         if line.startswith("BTN:"):
             try:
                 idx = int(line.split(":")[1]) - 1
                 if 0 <= idx < 3:
-                    self.counters[idx] += 1
-                    self.history.append((datetime.now().isoformat(), idx + 1, "ON"))
-                    self.lbl_states[idx].setText("ON")
+                    self.total_counter += 1
+                    self.history.append((datetime.now().isoformat(), idx+1, "BTN"))
+                    self.led_states[idx] = True
+                    self.led_state_labels[idx].setText("ON")
                     self.update_ui()
             except Exception:
                 pass
         elif line.startswith("ACK:LED:"):
             parts = line.split(":")
             if len(parts) >= 4:
-                idx = int(parts[2]) - 1
-                val = parts[3]
-                self.lbl_states[idx].setText("ON" if val == "1" else "OFF")
+                try:
+                    idx = int(parts[2]) - 1
+                    val = parts[3]
+                    state = (val == "1")
+                    if 0 <= idx < 3:
+                        self.led_states[idx] = state
+                        self.led_state_labels[idx].setText("ON" if state else "OFF")
+                except Exception:
+                    pass
+                self.update_ui()
         else:
             self.history.append((datetime.now().isoformat(), 0, line))
             self.update_ui()
 
     def update_ui(self):
+        self.counter_label.setText(f"Contador total: {self.total_counter}")
         for i in range(3):
-            self.lbl_counts[i].setText(str(self.counters[i]))
-        total = sum(self.counters)
-        self.total_label.setText(f"Total: {total}")
-        recent = self.history[-5:]
+            self.led_state_labels[i].setText("ON" if self.led_states[i] else "OFF")
+        recent = self.history[-6:]
         txt = "Eventos recientes:\n" + "\n".join([f"{t[0]} - LED {t[1]} - {t[2]}" for t in recent])
         self.event_label.setText(txt)
 
     def toggle_led_gui(self, idx):
-        cur = self.lbl_states[idx].text()
-        val = "0" if cur == "ON" else "1"
-        if self.serial_thread:
-            self.serial_thread.write(f"LED:{idx+1}:{val}")
+        """Toggle de LED desde la GUI (envía por serial si está conectado;
+           en modo simulación cambia estado local y aumenta el contador)."""
+        new_state = not self.led_states[idx]
+        if self.serial_thread and self.serial_thread.isRunning():
+            cmd = f"LED:{idx+1}:{'1' if new_state else '0'}"
+            self.serial_thread.write(cmd)
+            self.led_state_labels[idx].setText("ON" if new_state else "OFF")
         else:
-            # simulación local si no hay serial
-            self.lbl_states[idx].setText("ON" if val == "1" else "OFF")
-            if val == "1":
-                self.counters[idx] += 1
-                self.history.append((datetime.now().isoformat(), idx + 1, "ON (GUI)"))
+
+            self.led_states[idx] = new_state
+            self.led_state_labels[idx].setText("ON" if new_state else "OFF")
+            if new_state:
+                self.total_counter += 1
+                self.history.append((datetime.now().isoformat(), idx+1, "ON (GUI)"))
+            else:
+                self.history.append((datetime.now().isoformat(), idx+1, "OFF (GUI)"))
             self.update_ui()
 
-    def reset_counter(self, idx):
-        self.counters[idx] = 0
+    def reset_total(self):
+        self.total_counter = 0
+        self.history.append((datetime.now().isoformat(), 0, "RESET"))
         self.update_ui()
 
     def export_csv(self):
@@ -229,6 +252,7 @@ class MainWindow(QWidget):
         super().closeEvent(event)
 
 
+# ----------------- Arranque -----------------
 def main():
     app = QApplication(sys.argv)
 
