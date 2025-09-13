@@ -17,7 +17,7 @@ try:
 except Exception:
     serial = None
 
-from Login import LoginDialog
+from Login import LoginDialog  # importa el diálogo limpio que guardaste en Login.py
 
 # ancho máximo del contenido: controla los gutters laterales
 MAX_WIDTH = 820
@@ -150,7 +150,6 @@ class MainWindow(QWidget):
 
     # ---------- Construir UI centrado con gutters laterales ----------
     def build_ui_centered(self):
-        # outer layout (contiene HBox para centrar el content)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 18, 20, 18)
         outer.setSpacing(8)
@@ -158,7 +157,6 @@ class MainWindow(QWidget):
         center_h = QHBoxLayout()
         center_h.addStretch()
 
-        # content: todo el UI real va dentro de este widget
         content = QWidget()
         content.setMaximumWidth(MAX_WIDTH)
         content_layout = QVBoxLayout(content)
@@ -224,7 +222,7 @@ class MainWindow(QWidget):
         conn_layout.addWidget(self.connect_btn)
         content_layout.addWidget(conn_card)
 
-        # LEDs area
+        # LEDs area (grid)
         leds_card = QWidget()
         leds_card.setProperty("class", "card")
         leds_layout = QGridLayout(leds_card)
@@ -255,7 +253,6 @@ class MainWindow(QWidget):
             btn_on = QPushButton("🟢  Encender")
             btn_on.setToolTip(f"Encender LED {i+1}")
             btn_on.clicked.connect(partial(self.gui_set_led, i, True))
-            # permitir que los botones se expandan para rellenar la columna
             btn_on.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             btn_off = QPushButton("⚪  Apagar")
@@ -284,7 +281,6 @@ class MainWindow(QWidget):
         btn4 = QPushButton("📡  Sensor (disabled)")
         btn4.setEnabled(False)
         btn4.setToolTip("LED4 se controla desde la protoboard por el sensor; no se puede controlar desde la app.")
-        # hacer que el botón del sensor se expanda para alcanzar la anchura de las columnas
         btn4.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         state4 = QLabel("⚪ OFF")
@@ -344,7 +340,6 @@ class MainWindow(QWidget):
             self.serial_thread.stop()
             self.serial_thread = None
             self.connect_btn.setText("🔌  Conectar")
-            # restart sim if needed
             if serial is None:
                 self.start_simulation()
             return
@@ -443,16 +438,12 @@ class MainWindow(QWidget):
     def handle_sensor_activation(self, is_on: bool):
         prev = self.sensor_last_state
         self.sensor_last_state = is_on
-
-        # actualizar LED4
         self.led_states[3] = is_on
-
         if (not prev) and is_on:
             self.total_counter += 1
             self.history.append((datetime.now().isoformat(), 4, "SENSOR_ON"))
         else:
             self.history.append((datetime.now().isoformat(), 4, "SENSOR_ON" if is_on else "SENSOR_OFF"))
-
         self.update_ui()
 
     # ---------- GUI actions ----------
@@ -460,11 +451,8 @@ class MainWindow(QWidget):
         if idx == 3:
             QMessageBox.information(self, "Información", "LED4 es controlado por el sensor y no puede activarse desde la app.")
             return
-
-        # evitar redundancia
         if self.led_states[idx] == turn_on:
             return
-
         if self.serial_thread and self.serial_thread.isRunning():
             cmd = f"LED:{idx+1}:{'1' if turn_on else '0'}"
             self.serial_thread.write(cmd)
@@ -497,28 +485,21 @@ class MainWindow(QWidget):
 
     # ---------- UI update ----------
     def update_ui(self):
-        # indicador explícito del sensor (bloqueado / libre)
         if self.sensor_last_state:
             self.sensor_status_label.setText("🔴 Sensor: Bloqueado")
             if self.current_theme == "dark":
-                self.sensor_status_label.setStyleSheet(
-                    "padding:6px; border-radius:6px; background:#4a1620; color:#ffdcdc; font-weight:700;")
+                self.sensor_status_label.setStyleSheet("padding:6px; border-radius:6px; background:#4a1620; color:#ffdcdc; font-weight:700;")
             else:
-                self.sensor_status_label.setStyleSheet(
-                    "padding:6px; border-radius:6px; background:#ffdede; color:#8b1a1a; font-weight:700;")
+                self.sensor_status_label.setStyleSheet("padding:6px; border-radius:6px; background:#ffdede; color:#8b1a1a; font-weight:700;")
         else:
             self.sensor_status_label.setText("🟢 Sensor: Libre")
             if self.current_theme == "dark":
-                self.sensor_status_label.setStyleSheet(
-                    "padding:6px; border-radius:6px; background:#163b20; color:#dfffe6; font-weight:700;")
+                self.sensor_status_label.setStyleSheet("padding:6px; border-radius:6px; background:#163b20; color:#dfffe6; font-weight:700;")
             else:
-                self.sensor_status_label.setStyleSheet(
-                    "padding:6px; border-radius:6px; background:#dff5e0; color:#1a8f2a; font-weight:700;")
+                self.sensor_status_label.setStyleSheet("padding:6px; border-radius:6px; background:#dff5e0; color:#1a8f2a; font-weight:700;")
 
-        # contador (con icono)
         self.counter_label.setText(f"📡  Contador (sensor): {self.total_counter}")
 
-        # LED states labels with emoji
         for i in range(4):
             lbl = self.led_state_labels[i]
             state = self.led_states[i]
@@ -535,7 +516,6 @@ class MainWindow(QWidget):
                 else:
                     lbl.setStyleSheet("padding:6px; border-radius:6px; background:#f2f5f9; color:#6c7a89; font-weight:700;")
 
-        # habilitar/deshabilitar botones On/Off según estado (LED1..LED3)
         for i in range(3):
             state = self.led_states[i]
             if i < len(self.led_buttons_on):
@@ -543,8 +523,7 @@ class MainWindow(QWidget):
             if i < len(self.led_buttons_off):
                 self.led_buttons_off[i].setEnabled(state)
 
-        # events recent -> QPlainTextEdit con scroll
-        recent = self.history[-200:]  # mostrar hasta 200 más recientes
+        recent = self.history[-200:]
         lines = [f"{t[0]} - LED {t[1]} - {t[2]}" for t in recent]
         txt = "\n".join(lines)
         self.events_view.setPlainText(txt)
@@ -552,7 +531,6 @@ class MainWindow(QWidget):
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.events_view.setTextCursor(cursor)
 
-        # actualizar connect button icon/text si no conectado (in case)
         if not (self.serial_thread and self.serial_thread.isRunning()):
             self.connect_btn.setText("🔌  Conectar")
 
