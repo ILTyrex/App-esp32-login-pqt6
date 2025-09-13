@@ -3,7 +3,7 @@ import sys, time
 from functools import partial
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QGridLayout, QMessageBox, QComboBox, QDialog, QPlainTextEdit
+    QGridLayout, QMessageBox, QComboBox, QDialog, QPlainTextEdit, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QTextCursor
@@ -18,6 +18,10 @@ except Exception:
     serial = None
 
 from Login import LoginDialog
+
+# ancho máximo del contenido: lo reduje para aumentar gutter lateral (más separación)
+MAX_WIDTH = 820
+
 
 # ----------------- SerialThread -----------------
 class SerialThread(QThread):
@@ -76,7 +80,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.username = username
         self.setWindowTitle(f"Protoboard - Usuario: {username}")
-        self.resize(760, 520)
+        self.resize(900, 640)
 
         # contador (solo por sensor -> LED4)
         self.total_counter = 0
@@ -100,7 +104,7 @@ class MainWindow(QWidget):
         self.current_theme = "light"
 
         # UI
-        self.build_ui()
+        self.build_ui_centered()
         self.apply_theme(self.current_theme)
         self.update_ui()
 
@@ -144,11 +148,23 @@ class MainWindow(QWidget):
         self.current_theme = theme
         self.update_ui()
 
-    # ---------- UI ----------
-    def build_ui(self):
-        main = QVBoxLayout()
-        main.setContentsMargins(12, 12, 12, 12)
-        main.setSpacing(12)
+    # ---------- Construir UI centrado con gutters laterales ----------
+    def build_ui_centered(self):
+        # outer layout (contiene HBox para centrar el content)
+        outer = QVBoxLayout(self)
+        # aumenté un poco los márgenes para mayor separación con bordes
+        outer.setContentsMargins(20, 18, 20, 18)
+        outer.setSpacing(8)
+
+        center_h = QHBoxLayout()
+        center_h.addStretch()
+
+        # content: todo el UI real va dentro de este widget
+        content = QWidget()
+        content.setMaximumWidth(MAX_WIDTH)
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(12, 12, 12, 12)
+        content_layout.setSpacing(12)
 
         # Header
         header = QHBoxLayout()
@@ -156,23 +172,27 @@ class MainWindow(QWidget):
         title.setObjectName("title")
         header.addWidget(title)
 
-        # Theme button (emoji changes in apply_theme)
+        # Theme button
         self.theme_btn = QPushButton("🌙  Oscuro")
         self.theme_btn.setToolTip("Alternar tema claro/oscuro")
         self.theme_btn.clicked.connect(self.on_toggle_theme)
+        self.theme_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         header.addWidget(self.theme_btn)
 
         header.addStretch()
         self.counter_label = QLabel("📡  Contador (sensor): 0")
         self.counter_label.setObjectName("counter")
+        self.counter_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         header.addWidget(self.counter_label)
-        main.addLayout(header)
+        content_layout.addLayout(header)
 
         # Connection card
         conn_card = QWidget()
         conn_card.setProperty("class", "card")
         conn_layout = QHBoxLayout(conn_card)
         conn_layout.setContentsMargins(8, 8, 8, 8)
+        conn_layout.setSpacing(8)
+
         self.port_combo = QComboBox()
         ports = []
         if serial is not None:
@@ -181,17 +201,21 @@ class MainWindow(QWidget):
             except Exception:
                 ports = []
         self.port_combo.addItems(ports)
+        self.port_combo.setMaximumWidth(220)
+
         self.connect_btn = QPushButton("🔌  Conectar")
         self.connect_btn.setObjectName("connectBtn")
         self.connect_btn.setToolTip("Conectar / desconectar puerto serial")
         self.connect_btn.clicked.connect(self.toggle_connection)
+        self.connect_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
         conn_layout.addWidget(QLabel("Puerto:"))
         conn_layout.addWidget(self.port_combo)
         conn_layout.addStretch()
         conn_layout.addWidget(self.connect_btn)
-        main.addWidget(conn_card)
+        content_layout.addWidget(conn_card)
 
-        # LEDs area (grid)
+        # LEDs area
         leds_card = QWidget()
         leds_card.setProperty("class", "card")
         leds_layout = QGridLayout(leds_card)
@@ -199,7 +223,6 @@ class MainWindow(QWidget):
         leds_layout.setHorizontalSpacing(12)
         leds_layout.setVerticalSpacing(10)
 
-        # Column headers with icons
         leds_layout.addWidget(QLabel("<b>LED</b>"), 0, 0)
         leds_layout.addWidget(QLabel("<b>🟢 Encender</b>"), 0, 1)
         leds_layout.addWidget(QLabel("<b>⚪ Apagar</b>"), 0, 2)
@@ -211,15 +234,25 @@ class MainWindow(QWidget):
 
         for i in range(3):
             label = QLabel(f"LED {i+1}")
+            label.setMinimumWidth(80)
+            label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
             btn_on = QPushButton("🟢  Encender")
             btn_on.setToolTip(f"Encender LED {i+1}")
             btn_on.clicked.connect(partial(self.gui_set_led, i, True))
+            btn_on.setMaximumWidth(160)
+            btn_on.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
             btn_off = QPushButton("⚪  Apagar")
             btn_off.setToolTip(f"Apagar LED {i+1}")
             btn_off.clicked.connect(partial(self.gui_set_led, i, False))
+            btn_off.setMaximumWidth(160)
+            btn_off.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
             state_lbl = QLabel("⚪ OFF")
             state_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             state_lbl.setFixedWidth(100)
+            state_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
             leds_layout.addWidget(label, i+1, 0)
             leds_layout.addWidget(btn_on, i+1, 1)
@@ -232,9 +265,11 @@ class MainWindow(QWidget):
 
         # LED4 sensor (no control app)
         label4 = QLabel("LED 4 (sensor)")
-        btn4 = QPushButton("📡  Sensor (disabled)")
+        label4.setMinimumWidth(80)
+        btn4 = QPushButton("📡  Sensor ")
         btn4.setEnabled(False)
         btn4.setToolTip("LED4 se controla desde la protoboard por el sensor; no se puede controlar desde la app.")
+        btn4.setMaximumWidth(320)
         state4 = QLabel("⚪ OFF")
         state4.setAlignment(Qt.AlignmentFlag.AlignCenter)
         state4.setFixedWidth(100)
@@ -244,9 +279,10 @@ class MainWindow(QWidget):
         leds_layout.addWidget(state4, 4, 3)
         self.led_state_labels.append(state4)
 
-        main.addWidget(leds_card)
+        leds_card.setMaximumWidth(MAX_WIDTH - 40)
+        content_layout.addWidget(leds_card)
 
-        # Bottom: export + reset with icons
+        # Bottom: export + reset
         bottom_card = QWidget()
         bottom_card.setProperty("class", "card")
         bottom_layout = QHBoxLayout(bottom_card)
@@ -255,13 +291,15 @@ class MainWindow(QWidget):
         self.export_btn = QPushButton("💾  Exportar historial")
         self.export_btn.setToolTip("Guardar historial a CSV")
         self.export_btn.clicked.connect(self.export_csv)
+        self.export_btn.setMaximumWidth(180)
         self.reset_btn = QPushButton("♻️  Reset contador")
         self.reset_btn.setObjectName("resetBtn")
         self.reset_btn.setToolTip("Reiniciar contador (solo activaciones del sensor)")
         self.reset_btn.clicked.connect(self.reset_total)
+        self.reset_btn.setMaximumWidth(160)
         bottom_layout.addWidget(self.export_btn)
         bottom_layout.addWidget(self.reset_btn)
-        main.addWidget(bottom_card)
+        content_layout.addWidget(bottom_card)
 
         # Note
         note = QLabel()
@@ -270,16 +308,18 @@ class MainWindow(QWidget):
         else:
             note.setText("ESP32 debe enviar: BTN:1..3 (pulsadores), SENSOR:1/0 (sensor) y opcional ACK:LED:n:v.")
         note.setProperty("class", "smallNote")
-        main.addWidget(note)
+        content_layout.addWidget(note)
 
-        # ---------- Historial con scroll aquí ----------
+        # Historial (scroll)
         self.events_view = QPlainTextEdit()
         self.events_view.setReadOnly(True)
-        self.events_view.setMaximumHeight(180)   # ajusta altura del historial
-        self.events_view.setPlaceholderText("Eventos recientes aparecerán aquí...")
-        main.addWidget(self.events_view)
+        self.events_view.setMaximumHeight(200)
+        content_layout.addWidget(self.events_view)
 
-        self.setLayout(main)
+        # add content centered with gutters
+        center_h.addWidget(content)
+        center_h.addStretch()
+        outer.addLayout(center_h)
 
     # ---------- Serial / simulation ----------
     def toggle_connection(self):
@@ -463,15 +503,16 @@ class MainWindow(QWidget):
         # habilitar/deshabilitar botones On/Off según estado (LED1..LED3)
         for i in range(3):
             state = self.led_states[i]
-            self.led_buttons_on[i].setEnabled(not state)
-            self.led_buttons_off[i].setEnabled(state)
+            if i < len(self.led_buttons_on):
+                self.led_buttons_on[i].setEnabled(not state)
+            if i < len(self.led_buttons_off):
+                self.led_buttons_off[i].setEnabled(state)
 
-        # events recent -> ahora en QPlainTextEdit con scroll
-        recent = self.history[-100:]  # guarda y muestra hasta 100 eventos recientes
+        # events recent -> QPlainTextEdit con scroll
+        recent = self.history[-200:]  # mostrar hasta 200 más recientes
         lines = [f"{t[0]} - LED {t[1]} - {t[2]}" for t in recent]
         txt = "\n".join(lines)
         self.events_view.setPlainText(txt)
-        # mover cursor al final para que se vea el último evento
         cursor = self.events_view.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.events_view.setTextCursor(cursor)
