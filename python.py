@@ -19,7 +19,7 @@ except Exception:
 
 from Login import LoginDialog
 
-# ancho máximo del contenido: lo reduje para aumentar gutter lateral (más separación)
+# ancho máximo del contenido: controla los gutters laterales
 MAX_WIDTH = 820
 
 
@@ -152,7 +152,6 @@ class MainWindow(QWidget):
     def build_ui_centered(self):
         # outer layout (contiene HBox para centrar el content)
         outer = QVBoxLayout(self)
-        # aumenté un poco los márgenes para mayor separación con bordes
         outer.setContentsMargins(20, 18, 20, 18)
         outer.setSpacing(8)
 
@@ -180,10 +179,20 @@ class MainWindow(QWidget):
         header.addWidget(self.theme_btn)
 
         header.addStretch()
+
+        # indicador del sensor primero
+        self.sensor_status_label = QLabel("🟢 Sensor: Libre")
+        self.sensor_status_label.setToolTip("Estado del sensor de proximidad (bloqueado / libre)")
+        self.sensor_status_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.sensor_status_label.setFixedWidth(170)
+        header.addWidget(self.sensor_status_label)
+
+        # contador
         self.counter_label = QLabel("📡  Contador (sensor): 0")
         self.counter_label.setObjectName("counter")
         self.counter_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         header.addWidget(self.counter_label)
+
         content_layout.addLayout(header)
 
         # Connection card
@@ -223,6 +232,12 @@ class MainWindow(QWidget):
         leds_layout.setHorizontalSpacing(12)
         leds_layout.setVerticalSpacing(10)
 
+        # configurar stretch de columnas: 1 y 2 serán expansivas
+        leds_layout.setColumnStretch(0, 0)
+        leds_layout.setColumnStretch(1, 1)
+        leds_layout.setColumnStretch(2, 1)
+        leds_layout.setColumnStretch(3, 0)
+
         leds_layout.addWidget(QLabel("<b>LED</b>"), 0, 0)
         leds_layout.addWidget(QLabel("<b>🟢 Encender</b>"), 0, 1)
         leds_layout.addWidget(QLabel("<b>⚪ Apagar</b>"), 0, 2)
@@ -240,14 +255,13 @@ class MainWindow(QWidget):
             btn_on = QPushButton("🟢  Encender")
             btn_on.setToolTip(f"Encender LED {i+1}")
             btn_on.clicked.connect(partial(self.gui_set_led, i, True))
-            btn_on.setMaximumWidth(160)
-            btn_on.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            # permitir que los botones se expandan para rellenar la columna
+            btn_on.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             btn_off = QPushButton("⚪  Apagar")
             btn_off.setToolTip(f"Apagar LED {i+1}")
             btn_off.clicked.connect(partial(self.gui_set_led, i, False))
-            btn_off.setMaximumWidth(160)
-            btn_off.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            btn_off.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
             state_lbl = QLabel("⚪ OFF")
             state_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -263,19 +277,22 @@ class MainWindow(QWidget):
             self.led_buttons_off.append(btn_off)
             self.led_state_labels.append(state_lbl)
 
-        # LED4 sensor (no control app)
+        # LED4 sensor (no control app) -> ocupará columnas 1 y 2 y rellenará
         label4 = QLabel("LED 4 (sensor)")
         label4.setMinimumWidth(80)
-        btn4 = QPushButton("📡  Sensor ")
+
+        btn4 = QPushButton("📡  Sensor (disabled)")
         btn4.setEnabled(False)
         btn4.setToolTip("LED4 se controla desde la protoboard por el sensor; no se puede controlar desde la app.")
-        btn4.setMaximumWidth(320)
+        # hacer que el botón del sensor se expanda para alcanzar la anchura de las columnas
+        btn4.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         state4 = QLabel("⚪ OFF")
         state4.setAlignment(Qt.AlignmentFlag.AlignCenter)
         state4.setFixedWidth(100)
 
         leds_layout.addWidget(label4, 4, 0)
-        leds_layout.addWidget(btn4, 4, 1, 1, 2)
+        leds_layout.addWidget(btn4, 4, 1, 1, 2)  # ocupa columnas 1 y 2
         leds_layout.addWidget(state4, 4, 3)
         self.led_state_labels.append(state4)
 
@@ -480,6 +497,24 @@ class MainWindow(QWidget):
 
     # ---------- UI update ----------
     def update_ui(self):
+        # indicador explícito del sensor (bloqueado / libre)
+        if self.sensor_last_state:
+            self.sensor_status_label.setText("🔴 Sensor: Bloqueado")
+            if self.current_theme == "dark":
+                self.sensor_status_label.setStyleSheet(
+                    "padding:6px; border-radius:6px; background:#4a1620; color:#ffdcdc; font-weight:700;")
+            else:
+                self.sensor_status_label.setStyleSheet(
+                    "padding:6px; border-radius:6px; background:#ffdede; color:#8b1a1a; font-weight:700;")
+        else:
+            self.sensor_status_label.setText("🟢 Sensor: Libre")
+            if self.current_theme == "dark":
+                self.sensor_status_label.setStyleSheet(
+                    "padding:6px; border-radius:6px; background:#163b20; color:#dfffe6; font-weight:700;")
+            else:
+                self.sensor_status_label.setStyleSheet(
+                    "padding:6px; border-radius:6px; background:#dff5e0; color:#1a8f2a; font-weight:700;")
+
         # contador (con icono)
         self.counter_label.setText(f"📡  Contador (sensor): {self.total_counter}")
 
