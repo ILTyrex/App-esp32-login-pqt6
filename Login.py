@@ -6,10 +6,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+USER_RE = re.compile(r"^[^\s]{3,32}$")
 
 class RegisterDialog(QDialog):
-    """Diálogo simple para registrar con correo + contraseña + confirmar."""
+    """Diálogo simple para registrar con usuario + contraseña + confirmar."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Registrar nuevo usuario")
@@ -19,13 +19,14 @@ class RegisterDialog(QDialog):
         layout = QVBoxLayout()
         form = QFormLayout()
 
-        self.email_edit = QLineEdit()
+        self.user_edit = QLineEdit()
+        self.user_edit.setPlaceholderText("usuario (sin espacios, 3+ caracteres)")
         self.pwd_edit = QLineEdit()
         self.pwd_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.pwd_confirm = QLineEdit()
         self.pwd_confirm.setEchoMode(QLineEdit.EchoMode.Password)
 
-        form.addRow("Correo:", self.email_edit)
+        form.addRow("Usuario:", self.user_edit)
         form.addRow("Contraseña:", self.pwd_edit)
         form.addRow("Confirmar contraseña:", self.pwd_confirm)
         layout.addLayout(form)
@@ -44,15 +45,15 @@ class RegisterDialog(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
 
     def get_data(self):
-        """Devuelve (email, pwd, pwd_confirm)"""
-        return self.email_edit.text().strip(), self.pwd_edit.text(), self.pwd_confirm.text()
+        """Devuelve (username, pwd, pwd_confirm)"""
+        return self.user_edit.text().strip(), self.pwd_edit.text(), self.pwd_confirm.text()
 
 
 class LoginDialog(QDialog):
     """
     Login simple en memoria. Usuarios se mantienen en self._users (dict).
-    Clave: correo (en minúsculas) -> contraseña en texto (solo para demo).
-    Usuario por defecto: admin@example.com / admin123
+    Clave: usuario -> contraseña en texto (solo para demo).
+    Usuario por defecto: admin / admin
     """
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -60,17 +61,17 @@ class LoginDialog(QDialog):
         self.setModal(True)
         self.resize(400, 170)
 
-        # usuarios en memoria: email -> password
-        self._users = {"admin@example.com": "admin123"}
+        # usuarios en memoria: usuario -> password
+        self._users = {"admin": "admin"}
 
         layout = QVBoxLayout()
         form = QFormLayout()
-        self.email_edit = QLineEdit()
-        self.email_edit.setPlaceholderText("correo@ejemplo.com")
+        self.user_edit = QLineEdit()
+        self.user_edit.setPlaceholderText("usuario")
         self.pwd_edit = QLineEdit()
         self.pwd_edit.setEchoMode(QLineEdit.EchoMode.Password)
 
-        form.addRow("Correo:", self.email_edit)
+        form.addRow("Usuario:", self.user_edit)
         form.addRow("Contraseña:", self.pwd_edit)
         layout.addLayout(form)
 
@@ -92,23 +93,23 @@ class LoginDialog(QDialog):
         self.register_btn.clicked.connect(self.open_register)
         self.cancel_btn.clicked.connect(self.reject)
 
-        self.result_username = None  # contendrá el correo si login OK
+        self.result_username = None 
 
     # ---------- Login ----------
     def attempt_login(self):
-        email = self.email_edit.text().strip().lower()
+        user = self.user_edit.text().strip()
         pwd = self.pwd_edit.text()
-        if not email or not pwd:
-            QMessageBox.warning(self, "Datos faltantes", "Introduce correo y contraseña.")
+        if not user or not pwd:
+            QMessageBox.warning(self, "Datos faltantes", "Introduce usuario y contraseña.")
             return
-        if email not in self._users:
+        if user not in self._users:
             QMessageBox.critical(self, "Error", "No existe ese usuario.")
             return
-        if self._users[email] != pwd:
+        if self._users[user] != pwd:
             QMessageBox.critical(self, "Error", "Contraseña incorrecta.")
             return
 
-        self.result_username = email
+        self.result_username = user
         self.accept()
 
     # ---------- Registro ----------
@@ -117,15 +118,15 @@ class LoginDialog(QDialog):
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
 
-        email, pwd, pwd_confirm = dlg.get_data()
-        email = email.strip().lower()
+        user, pwd, pwd_confirm = dlg.get_data()
+        user = user.strip()
 
         # Validaciones
-        if not email or not pwd or not pwd_confirm:
-            QMessageBox.warning(self, "Datos faltantes", "Rellena correo, contraseña y confirmar.")
+        if not user or not pwd or not pwd_confirm:
+            QMessageBox.warning(self, "Datos faltantes", "Rellena usuario, contraseña y confirmar.")
             return
-        if not EMAIL_RE.match(email):
-            QMessageBox.warning(self, "Correo inválido", "Introduce un correo válido (ej: usuario@dominio.com).")
+        if not USER_RE.match(user):
+            QMessageBox.warning(self, "Usuario inválido", "El usuario no debe contener espacios y debe tener entre 3 y 32 caracteres.")
             return
         if len(pwd) < 6:
             QMessageBox.warning(self, "Contraseña débil", "La contraseña debe tener al menos 6 caracteres.")
@@ -133,11 +134,10 @@ class LoginDialog(QDialog):
         if pwd != pwd_confirm:
             QMessageBox.warning(self, "Error", "Las contraseñas no coinciden.")
             return
-        if email in self._users:
-            QMessageBox.critical(self, "Registro", "El correo ya está registrado (en memoria).")
+        if user in self._users:
+            QMessageBox.critical(self, "Registro", "El usuario ya existe (en memoria).")
             return
 
         # Guardar en memoria
-        self._users[email] = pwd
+        self._users[user] = pwd
         QMessageBox.information(self, "Registro", "Cuenta creada en memoria. Ahora puedes iniciar sesión.")
-
