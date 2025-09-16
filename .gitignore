@@ -1,0 +1,53 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# --- Entornos virtuales ---
+venv/
+env/
+.venv/
+ENV/
+
+# --- Archivos temporales ---
+*.log
+*.pot
+*.tmp
+*.swp
+*.swo
+*.bak
+*.orig
+
+# --- IDEs ---
+# VSCode
+.vscode/
+# PyCharm / JetBrains
+.idea/
+
+# --- Qt Designer ---
+# Archivos compilados automáticamente desde .ui
+*.pyc
+*.qmlc
+*_rc.py
+*_ui.py
+
+# --- Sistema operativo ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# --- Otros ---
+# Archivos de Jupyter
+.ipynb_checkpoints/

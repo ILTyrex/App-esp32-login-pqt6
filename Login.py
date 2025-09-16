@@ -1,4 +1,3 @@
-# Login.py
 import re
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit,
