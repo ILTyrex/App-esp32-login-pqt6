@@ -45,6 +45,16 @@ class MainWindow(QWidget):
         self._reset_ack_timer.setSingleShot(True)
         self._reset_ack_timer.timeout.connect(self._on_reset_ack_timeout)
 
+        # Port scan timer for auto-detection
+        self._port_scan_timer = QTimer(self)
+        self._port_scan_timer.setInterval(1500)
+        self._port_scan_timer.timeout.connect(self._scan_ports)
+        self._port_scan_timer.start()
+
+        # small debounce to avoid rapid reconnect attempts
+        self._last_autoconnect_port = None
+        self._last_autoconnect_ts = 0
+
         settings = load_settings()
         self.current_theme = settings.get("theme", "light")
 
@@ -334,6 +344,49 @@ class MainWindow(QWidget):
         self.serial_thread.line_received.connect(self.on_line)
         self.serial_thread.connected.connect(self.on_connected)
         self.serial_thread.start()
+
+    def _scan_ports(self):
+        # Update available ports in the combo and try auto-connect to ESP32
+        try:
+            import serial
+            ports_list = [p.device for p in serial.tools.list_ports.comports()]
+        except Exception:
+            ports_list = []
+
+        # update combo without losing selection if possible
+        curr = self.port_combo.currentText()
+        self.port_combo.blockSignals(True)
+        try:
+            self.port_combo.clear()
+            self.port_combo.addItems(ports_list)
+            if curr and curr in ports_list:
+                idx = self.port_combo.findText(curr)
+                if idx >= 0:
+                    self.port_combo.setCurrentIndex(idx)
+        finally:
+            self.port_combo.blockSignals(False)
+
+        # If we're already connected, nothing to do
+        if self.serial_thread and self.serial_thread.isRunning():
+            return
+
+        # Look for an ESP32 port among available ports
+        for p in ports_list:
+            try:
+                if SerialThread.detect_esp32_port(p, 115200):
+                    # debounce: avoid reconnecting the same port too often
+                    import time
+                    now = time.time()
+                    if p == self._last_autoconnect_port and (now - self._last_autoconnect_ts) < 3.0:
+                        return
+                    self._last_autoconnect_port = p
+                    self._last_autoconnect_ts = now
+                    # auto-connect
+                    self.port_combo.setCurrentText(p)
+                    self.toggle_connection()
+                    return
+            except Exception:
+                continue
 
     def on_connected(self, ok):
         if ok:
