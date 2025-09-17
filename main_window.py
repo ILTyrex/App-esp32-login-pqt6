@@ -39,6 +39,11 @@ class MainWindow(QWidget):
         self.serial_thread = None
         self.sim_timer = None
         self.sim_interval_ms = 7000
+        # reset ACK handling
+        self._waiting_reset_ack = False
+        self._reset_ack_timer = QTimer(self)
+        self._reset_ack_timer.setSingleShot(True)
+        self._reset_ack_timer.timeout.connect(self._on_reset_ack_timeout)
 
         settings = load_settings()
         self.current_theme = settings.get("theme", "light")
@@ -361,6 +366,26 @@ class MainWindow(QWidget):
         print("FROM ESP32:", line)
         up = line.upper()
 
+        # handle RESET ack explicitly
+        if up.startswith("ACK:RESET"):
+            try:
+                if self._waiting_reset_ack:
+                    self._waiting_reset_ack = False
+                    try:
+                        self._reset_ack_timer.stop()
+                    except Exception:
+                        pass
+                    # Confirm UI counter already reset locally; ensure sync
+                    self.total_counter = 0
+                    self.history.append((datetime.now().isoformat(), 0, "ACK:RESET"))
+                    if self.db_user_id:
+                        db_save_event(self.db_user_id, "RESET_CONTADOR", "CONTADOR", "CIRCUITO", "0")
+                    QMessageBox.information(self, "Reset", "Contador reiniciado en ESP32 (ACK recibido).")
+                    self.update_ui()
+                    return
+            except Exception:
+                pass
+
         if up.startswith("BTN:"):
             try:
                 idx = int(line.split(":")[1]) - 1
@@ -461,30 +486,46 @@ class MainWindow(QWidget):
             self.total_counter = 0
             self.history.append((datetime.now().isoformat(), 0, "RESET"))
             try:
-                # Try to send logical RESET command first (if firmware supports it)
+                # Try logical reset first (device may support it). Wait for ACK, else fallback.
+                sent = False
                 if self.serial_thread and self.serial_thread.isRunning():
-                    try:
-                        self.serial_thread.write("RESET")
-                    except Exception:
-                        pass
-                    # Also attempt hardware reset pulse via the thread
-                    try:
-                        self.serial_thread.hardware_reset()
-                    except Exception:
-                        pass
+                    self.serial_thread.write("RESET")
+                    sent = True
                 else:
-                    # If no running serial thread, try hardware reset on selected port
-                    try:
-                        port = self.port_combo.currentText()
-                        if port:
-                            SerialThread.hardware_reset_port(port, 115200)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    sel = self.port_combo.currentText()
+                    if sel:
+                        # attempt to send via a temporary connection
+                        try:
+                            SerialThread.hardware_reset_port(sel, 115200, pulse_ms=0)
+                        except Exception:
+                            pass
+                if sent:
+                    # wait for ACK:RESET for up to 1500 ms
+                    self._waiting_reset_ack = True
+                    self._reset_ack_timer.start(1500)
+                    return
+                else:
+                    # no logical path taken, perform hardware reset
+                    sel = self.port_combo.currentText()
+                    if sel:
+                        SerialThread.hardware_reset_port(sel, 115200)
+            except Exception as e:
+                print("Reset error:", e)
             if self.db_user_id:
                 db_save_event(self.db_user_id, "RESET_CONTADOR", "CONTADOR", "APP", "0")
             self.update_ui()
+
+    def _on_reset_ack_timeout(self):
+        # ACK not received in time -> fallback to hardware reset
+        try:
+            if self._waiting_reset_ack:
+                self._waiting_reset_ack = False
+                sel = self.port_combo.currentText()
+                if sel:
+                    SerialThread.hardware_reset_port(sel, 115200)
+                QMessageBox.information(self, "Reset", "No se recibió ACK de ESP32; se ejecutó reset hardware como fallback.")
+        except Exception as e:
+            print("Reset ACK timeout handler error:", e)
 
     # ---------------- export logic ----------------
     def export_dialog(self):
