@@ -311,6 +311,19 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Error", "Selecciona un puerto serial.")
             return
 
+        # Detectar si el puerto seleccionado probablemente pertenece a un ESP32
+        try:
+            is_esp = SerialThread.detect_esp32_port(port, 115200)
+        except Exception:
+            is_esp = False
+
+        if not is_esp:
+            resp = QMessageBox.question(self, "Puerto no identificado",
+                                        f"El puerto {port} no parece pertenecer a un ESP32. Deseas conectarte de todas formas?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            if resp != QMessageBox.StandardButton.Yes:
+                return
+
         self.stop_simulation()
         self.serial_thread = SerialThread(port, 115200)
         self.serial_thread.line_received.connect(self.on_line)

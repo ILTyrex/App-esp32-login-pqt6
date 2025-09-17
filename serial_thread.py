@@ -1,5 +1,6 @@
 from PyQt6.QtCore import QThread, pyqtSignal
 import time
+import re
 
 try:
     import serial
@@ -126,3 +127,75 @@ class SerialThread(QThread):
             except Exception:
                 pass
             return False
+
+    @staticmethod
+    def detect_esp32_port(port: str, baud: int = 115200, timeout: float = 1.5) -> bool:
+        """
+        Heurística para detectar si el dispositivo en `port` es un ESP32.
+        - Primero inspecciona `serial.tools.list_ports` buscando VID/PID/description conocidas.
+        - Si eso no confirma, intenta un pulso DTR corto para forzar mensajes de arranque
+          y busca patrones típicos en la salida serie (p.ej. 'ets', 'rst:', 'ESP32').
+        Devuelve True si parece ESP32, False si no.
+        """
+        if serial is None:
+            return False
+
+        try:
+            ports = list(serial.tools.list_ports.comports())
+            for p in ports:
+                try:
+                    if p.device == port:
+                        info = " ".join([str(p.vid or ''), str(p.pid or ''), str(p.manufacturer or ''), str(p.product or ''), str(p.description or '')])
+                        info_l = info.lower()
+                        # common markers for ESP32 dev boards / usb-serial chips
+                        markers = ["silicon labs", "cp210", "ch340", "ch915", "ftdi", "usb-serial", "esp32", "espressif"]
+                        for m in markers:
+                            if m in info_l:
+                                return True
+                except Exception:
+                    continue
+
+            # fallback: open port, pulse DTR to force boot messages, read output
+            ser = None
+            try:
+                ser = serial.Serial(port, baud, timeout=0.2)
+                # pulse DTR/RTS
+                try:
+                    ser.setDTR(False)
+                    ser.setRTS(True)
+                    time.sleep(0.05)
+                    ser.setDTR(True)
+                    ser.setRTS(False)
+                except Exception:
+                    pass
+
+                deadline = time.time() + timeout
+                buf = ""
+                while time.time() < deadline:
+                    try:
+                        if ser.in_waiting:
+                            chunk = ser.read(ser.in_waiting).decode(errors='ignore')
+                            buf += chunk
+                            # look for typical ESP32 boot/ROM markers
+                            if re.search(r"ets |rst:|esp32|espressif|chip", buf, re.IGNORECASE):
+                                try:
+                                    ser.close()
+                                except Exception:
+                                    pass
+                                return True
+                    except Exception:
+                        break
+                    time.sleep(0.05)
+            except Exception:
+                pass
+            finally:
+                try:
+                    if ser and ser.is_open:
+                        ser.close()
+                except Exception:
+                    pass
+
+        except Exception:
+            return False
+
+        return False
