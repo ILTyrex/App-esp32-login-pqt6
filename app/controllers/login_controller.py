@@ -77,8 +77,9 @@ class LoginController(QMainWindow):
     def on_login_finished(self, success, msg):
         if success:
             QMessageBox.information(self, "Éxito", msg)
+            # Crear la controller principal. `MainController` internamente crea/mostrar
+            # la ventana real del protoboard, por lo que no necesitamos llamar a show()
             self.main_window = MainController(username=self.inputUser.text().strip())
-            self.main_window.show()
             self.hide()
         else:
             QMessageBox.critical(self, "Error", msg)

@@ -1,26 +1,44 @@
+# app/controllers/main_controller.py
 from PyQt6 import uic
-from PyQt6.QtWidgets import QMainWindow, QPushButton, QLabel
+from PyQt6.QtWidgets import QMainWindow
+
+# Importa la MainWindow real (panel protoboard) desde python.py
+# Si renombrás python.py -> pyqt_serial_counter.py, cambiar aquí la importación.
+try:
+    from python import MainWindow as ProtoboardWindow
+except Exception:
+    ProtoboardWindow = None
 
 
 class MainController(QMainWindow):
     def __init__(self, username=None):
         super().__init__()
-        uic.loadUi("app/gui/main_window.ui", self)
+        # Intentamos abrir la ventana del protoboard.
+        # Si no se puede (ProtoboardWindow es None) cargamos el UI simple por compatibilidad.
+        if ProtoboardWindow is not None:
+            # Creamos directamente la ventana completa y la mostramos.
+            self.protoboard = ProtoboardWindow(username=username)
+            self.protoboard.show()
+            # Cerramos este QMainWindow ya que no hace falta
+            self.close()
+            return
 
-        # Widgets de la UI
-        self.label: QLabel = self.findChild(QLabel, "label")
-        self.pushButton: QPushButton = self.findChild(QPushButton, "pushButton")
+        # Fallback: si no se pudo importar la MainWindow compleja, cargar UI simple
+        try:
+            uic.loadUi("app/gui/main_window.ui", self)
+        except Exception:
+            # si tampoco existe el ui, simplemente no hacemos nada visible
+            return
 
-        # Personalizar bienvenida
-        if username:
-            self.label.setText(f"Bienvenido {username} 🚀")
+        # Widgets de la UI (fallback)
+        try:
+            self.label = self.findChild(type(self.findChild), "label")
+        except Exception:
+            self.label = None
 
-        # Evento del botón (ejemplo: cambiar el texto o abrir otro módulo)
-        self.pushButton.clicked.connect(self.toggle_theme)
-
-    def toggle_theme(self):
-        """Ejemplo de acción: alternar texto del botón."""
-        if self.pushButton.text() == "☀️  Claro":
-            self.pushButton.setText("🌙 Oscuro")
-        else:
-            self.pushButton.setText("☀️  Claro")
+        # Personalizar bienvenida si hay label
+        if username and self.label:
+            try:
+                self.label.setText(f"Bienvenido {username} 🚀")
+            except Exception:
+                pass
