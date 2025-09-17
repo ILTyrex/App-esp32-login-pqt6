@@ -6,11 +6,9 @@ from app.controllers.login_controller import LoginController
 def main():
     app = QApplication(sys.argv)
 
-    # Creamos y mostramos la ventana de login
     login_window = LoginController()
     login_window.show()
 
-    # Ejecutamos la app
     sys.exit(app.exec())
 
 

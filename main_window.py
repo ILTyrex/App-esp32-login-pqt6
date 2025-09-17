@@ -448,8 +448,25 @@ class MainWindow(QWidget):
             self.total_counter = 0
             self.history.append((datetime.now().isoformat(), 0, "RESET"))
             try:
+                # Try to send logical RESET command first (if firmware supports it)
                 if self.serial_thread and self.serial_thread.isRunning():
-                    self.serial_thread.write("RESET")
+                    try:
+                        self.serial_thread.write("RESET")
+                    except Exception:
+                        pass
+                    # Also attempt hardware reset pulse via the thread
+                    try:
+                        self.serial_thread.hardware_reset()
+                    except Exception:
+                        pass
+                else:
+                    # If no running serial thread, try hardware reset on selected port
+                    try:
+                        port = self.port_combo.currentText()
+                        if port:
+                            SerialThread.hardware_reset_port(port, 115200)
+                    except Exception:
+                        pass
             except Exception:
                 pass
             if self.db_user_id:

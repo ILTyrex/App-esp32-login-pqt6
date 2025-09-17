@@ -1,4 +1,5 @@
 from PyQt6.QtCore import QThread, pyqtSignal
+import time
 
 try:
     import serial
@@ -54,3 +55,74 @@ class SerialThread(QThread):
     def write(self, data: str):
         if self.ser and self.ser.is_open:
             self.ser.write((data + "\n").encode())
+
+    def hardware_reset(self, pulse_ms: float = 0.05) -> bool:
+        """
+        Perform a hardware reset by toggling DTR/RTS lines on the open serial port.
+        If the internal serial is not open, try opening a temporary Serial to perform the pulse.
+        Returns True on success, False otherwise.
+        """
+        if serial is None:
+            return False
+
+        try:
+            if self.ser and getattr(self.ser, 'is_open', False):
+                try:
+                    # apply a short pulse
+                    self.ser.setDTR(False)
+                    self.ser.setRTS(True)
+                    time.sleep(pulse_ms)
+                    self.ser.setDTR(True)
+                    self.ser.setRTS(False)
+                    return True
+                except Exception:
+                    # fallthrough to try temporary open
+                    pass
+
+            # try opening a temporary serial port to pulse DTR/RTS
+            tmp = None
+            try:
+                tmp = serial.Serial(self.port, self.baud, timeout=1)
+                tmp.setDTR(False)
+                tmp.setRTS(True)
+                time.sleep(pulse_ms)
+                tmp.setDTR(True)
+                tmp.setRTS(False)
+                try:
+                    tmp.close()
+                except Exception:
+                    pass
+                return True
+            except Exception:
+                try:
+                    if tmp:
+                        tmp.close()
+                except Exception:
+                    pass
+                return False
+        except Exception:
+            return False
+
+    @staticmethod
+    def hardware_reset_port(port: str, baud: int = 115200, pulse_ms: float = 0.05) -> bool:
+        """Static helper: perform hardware reset on given port even if no SerialThread exists."""
+        if serial is None:
+            return False
+        try:
+            tmp = serial.Serial(port, baud, timeout=1)
+            tmp.setDTR(False)
+            tmp.setRTS(True)
+            time.sleep(pulse_ms)
+            tmp.setDTR(True)
+            tmp.setRTS(False)
+            try:
+                tmp.close()
+            except Exception:
+                pass
+            return True
+        except Exception:
+            try:
+                tmp.close()
+            except Exception:
+                pass
+            return False
