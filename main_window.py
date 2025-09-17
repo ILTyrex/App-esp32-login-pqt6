@@ -478,14 +478,7 @@ class MainWindow(QWidget):
             # Only process sensor events when a real ESP32 serial connection is active.
             # This avoids counting sensor-like events from unrelated PC devices.
             if not (self.serial_thread and self.serial_thread.isRunning()):
-                try:
-                    # Log that we ignored the event for diagnostics
-                    self.history.append((datetime.now().isoformat(), 0, f"IGNORED_SENSOR:{line}"))
-                    if self.db_user_id:
-                        db_save_event(self.db_user_id, "IGNORED_SENSOR", "CONTADOR", "APP", line[:200])
-                except Exception:
-                    pass
-                self.update_ui()
+                # Silently ignore sensor events when ESP32 is not connected.
                 return
             try:
                 parts = line.split(":")
