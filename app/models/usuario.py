@@ -1,4 +1,3 @@
-# app/models/usuario.py
 from app.models.database import get_connection
 from pymysql.err import MySQLError
 from app.utils.auth_service import hash_password
@@ -16,12 +15,12 @@ class UsuarioModel:
         try:
             cursor = conn.cursor()
 
-            # 👇 Verificar si el usuario ya existe
+            # Verificar si el usuario ya existe
             cursor.execute("SELECT id_usuario FROM usuarios WHERE usuario = %s", (usuario,))
             if cursor.fetchone():
                 return False, "El usuario ya existe."
 
-            # 👇 Si no existe, hacemos el hash y lo insertamos
+            # Si no existe, hacemos el hash y lo insertamos
             hashed_pwd = hash_password(contrasena)
             sql = "INSERT INTO usuarios (usuario, contrasena) VALUES (%s, %s)"
             cursor.execute(sql, (usuario, hashed_pwd))

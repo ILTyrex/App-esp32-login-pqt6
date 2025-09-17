@@ -24,7 +24,7 @@
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>240</y>
+      <y>220</y>
       <width>300</width>
       <height>30</height>
      </rect>
@@ -44,7 +44,7 @@
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>14</pointsize>
+      <pointsize>12</pointsize>
      </font>
     </property>
     <property name="maxLength">
@@ -61,16 +61,19 @@
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>150</y>
-      <width>70</width>
+      <y>130</y>
+      <width>80</width>
       <height>20</height>
      </rect>
     </property>
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>12</pointsize>
+      <pointsize>14</pointsize>
      </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Usuario:</string>
@@ -83,9 +86,9 @@
     <property name="geometry">
      <rect>
       <x>210</x>
-      <y>60</y>
+      <y>59</y>
       <width>240</width>
-      <height>80</height>
+      <height>61</height>
      </rect>
     </property>
     <property name="maximumSize">
@@ -95,7 +98,8 @@
      </size>
     </property>
     <property name="styleSheet">
-     <string notr="true">font: 700 28pt &quot;Arial&quot;;</string>
+     <string notr="true">font: 700 28pt &quot;Arial&quot;;
+background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Registrarse</string>
@@ -111,7 +115,7 @@
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>170</y>
+      <y>150</y>
       <width>300</width>
       <height>30</height>
      </rect>
@@ -131,7 +135,7 @@
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>14</pointsize>
+      <pointsize>12</pointsize>
      </font>
     </property>
     <property name="maxLength">
@@ -145,16 +149,19 @@
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>220</y>
-      <width>90</width>
+      <y>200</y>
+      <width>110</width>
       <height>20</height>
      </rect>
     </property>
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>12</pointsize>
+      <pointsize>14</pointsize>
      </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Contraseña:</string>
@@ -167,7 +174,7 @@
     <property name="geometry">
      <rect>
       <x>210</x>
-      <y>410</y>
+      <y>390</y>
       <width>220</width>
       <height>20</height>
      </rect>
@@ -188,7 +195,8 @@
      <cursorShape>PointingHandCursor</cursorShape>
     </property>
     <property name="styleSheet">
-     <string notr="true">color: rgb(0, 0, 255);</string>
+     <string notr="true">color: rgb(0, 0, 255);
+background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>¿Ya tienes cuenta? Inicia sesión</string>
@@ -201,7 +209,7 @@
     <property name="geometry">
      <rect>
       <x>250</x>
-      <y>360</y>
+      <y>340</y>
       <width>150</width>
       <height>30</height>
      </rect>
@@ -231,16 +239,19 @@ color: rgb(15, 23, 36);</string>
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>290</y>
-      <width>170</width>
+      <y>270</y>
+      <width>200</width>
       <height>20</height>
      </rect>
     </property>
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>12</pointsize>
+      <pointsize>14</pointsize>
      </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Confirmar Contraseña:</string>
@@ -253,7 +264,7 @@ color: rgb(15, 23, 36);</string>
     <property name="geometry">
      <rect>
       <x>180</x>
-      <y>310</y>
+      <y>290</y>
       <width>300</width>
       <height>30</height>
      </rect>
@@ -273,7 +284,7 @@ color: rgb(15, 23, 36);</string>
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>14</pointsize>
+      <pointsize>12</pointsize>
      </font>
     </property>
     <property name="maxLength">
@@ -286,6 +297,34 @@ color: rgb(15, 23, 36);</string>
      <string>Confirmar Contraseña</string>
     </property>
    </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>170</x>
+      <y>50</y>
+      <width>321</width>
+      <height>371</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);
+border-radius: 20px;
+</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <zorder>label</zorder>
+   <zorder>inputPassword</zorder>
+   <zorder>textUser</zorder>
+   <zorder>textTitle</zorder>
+   <zorder>inputUser</zorder>
+   <zorder>textPassword</zorder>
+   <zorder>textLogin</zorder>
+   <zorder>btnRegister</zorder>
+   <zorder>textConfirmPassword</zorder>
+   <zorder>inputConfirmPassword</zorder>
   </widget>
  </widget>
  <resources/>

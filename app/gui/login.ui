@@ -27,9 +27,9 @@
     <property name="geometry">
      <rect>
       <x>200</x>
-      <y>60</y>
+      <y>59</y>
       <width>240</width>
-      <height>80</height>
+      <height>61</height>
      </rect>
     </property>
     <property name="maximumSize">
@@ -39,7 +39,8 @@
      </size>
     </property>
     <property name="styleSheet">
-     <string notr="true">font: 700 28pt &quot;Arial&quot;;</string>
+     <string notr="true">font: 700 28pt &quot;Arial&quot;;
+background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Iniciar Sesión</string>
@@ -55,7 +56,7 @@
     <property name="geometry">
      <rect>
       <x>170</x>
-      <y>170</y>
+      <y>150</y>
       <width>300</width>
       <height>30</height>
      </rect>
@@ -75,7 +76,7 @@
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>14</pointsize>
+      <pointsize>12</pointsize>
      </font>
     </property>
     <property name="maxLength">
@@ -89,7 +90,7 @@
     <property name="geometry">
      <rect>
       <x>170</x>
-      <y>240</y>
+      <y>220</y>
       <width>300</width>
       <height>30</height>
      </rect>
@@ -109,7 +110,7 @@
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>14</pointsize>
+      <pointsize>12</pointsize>
      </font>
     </property>
     <property name="maxLength">
@@ -126,7 +127,7 @@
     <property name="geometry">
      <rect>
       <x>240</x>
-      <y>290</y>
+      <y>270</y>
       <width>150</width>
       <height>30</height>
      </rect>
@@ -156,7 +157,7 @@ color: rgb(15, 23, 36);</string>
     <property name="geometry">
      <rect>
       <x>210</x>
-      <y>340</y>
+      <y>320</y>
       <width>210</width>
       <height>20</height>
      </rect>
@@ -177,7 +178,8 @@ color: rgb(15, 23, 36);</string>
      <cursorShape>PointingHandCursor</cursorShape>
     </property>
     <property name="styleSheet">
-     <string notr="true">color: rgb(0, 0, 255);</string>
+     <string notr="true">color: rgb(0, 0, 255);
+background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>¿No tienes cuenta? Registrarse</string>
@@ -190,16 +192,19 @@ color: rgb(15, 23, 36);</string>
     <property name="geometry">
      <rect>
       <x>170</x>
-      <y>150</y>
-      <width>70</width>
+      <y>130</y>
+      <width>80</width>
       <height>20</height>
      </rect>
     </property>
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>12</pointsize>
+      <pointsize>14</pointsize>
      </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Usuario:</string>
@@ -212,16 +217,19 @@ color: rgb(15, 23, 36);</string>
     <property name="geometry">
      <rect>
       <x>170</x>
-      <y>220</y>
-      <width>90</width>
+      <y>200</y>
+      <width>110</width>
       <height>20</height>
      </rect>
     </property>
     <property name="font">
      <font>
       <family>Arial</family>
-      <pointsize>12</pointsize>
+      <pointsize>14</pointsize>
      </font>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);</string>
     </property>
     <property name="text">
      <string>Contraseña:</string>
@@ -230,6 +238,32 @@ color: rgb(15, 23, 36);</string>
      <set>Qt::AlignmentFlag::AlignCenter</set>
     </property>
    </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>160</x>
+      <y>50</y>
+      <width>321</width>
+      <height>371</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background-color: rgb(11, 21, 32);
+border-radius: 20px;
+</string>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
+   <zorder>label</zorder>
+   <zorder>textTitle</zorder>
+   <zorder>inputUser</zorder>
+   <zorder>inputPassword</zorder>
+   <zorder>btnLogin</zorder>
+   <zorder>textRegister</zorder>
+   <zorder>textUser</zorder>
+   <zorder>textPassword</zorder>
   </widget>
  </widget>
  <resources/>

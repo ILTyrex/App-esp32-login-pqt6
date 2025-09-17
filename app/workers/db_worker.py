@@ -1,4 +1,3 @@
-# app/workers/db_worker.py
 from PyQt6.QtCore import QObject, pyqtSignal
 from app.models.usuario import UsuarioModel
 
