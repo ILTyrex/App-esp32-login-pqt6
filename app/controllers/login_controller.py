@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QMainWindow, QMessageBox, QLineEdit, QPushButton, QL
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from app.models.usuario import UsuarioModel
 from app.controllers.register_controller import RegisterController
-from app.controllers.main_controller import MainController
+# Note: avoid importing MainController at module level to prevent circular imports
 from app.utils.auth_service import verify_password
 
 class LoginWorker(QObject):
@@ -77,8 +77,10 @@ class LoginController(QMainWindow):
     def on_login_finished(self, success, msg):
         if success:
             QMessageBox.information(self, "Éxito", msg)
-            # Crear la controller principal. `MainController` internamente crea/mostrar
-            # la ventana real del protoboard, por lo que no necesitamos llamar a show()
+            # Crear la controller principal. Importamos aquí para evitar ciclos
+            # de importación que pueden ocurrir al cargar la UI principal.
+            from app.controllers.main_controller import MainController
+            # `MainController` internamente crea/mostrar la ventana real del protoboard
             self.main_window = MainController(username=self.inputUser.text().strip())
             self.hide()
         else:

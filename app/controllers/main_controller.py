@@ -2,12 +2,16 @@
 from PyQt6 import uic
 from PyQt6.QtWidgets import QMainWindow
 
-# Importa la MainWindow real (panel protoboard) desde python.py
-# Si renombrás python.py -> pyqt_serial_counter.py, cambiar aquí la importación.
+# Importa la MainWindow real (panel protoboard). Preferimos cargarla
+# directamente desde `main_window.py` para evitar ciclos de importación
+# que se producen si cargamos `python.py` (que a su vez importa controllers).
 try:
-    from python import MainWindow as ProtoboardWindow
+    from main_window import MainWindow as ProtoboardWindow
 except Exception:
-    ProtoboardWindow = None
+    try:
+        from python import MainWindow as ProtoboardWindow
+    except Exception:
+        ProtoboardWindow = None
 
 
 class MainController(QMainWindow):

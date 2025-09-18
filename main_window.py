@@ -18,10 +18,75 @@ from shared import (
     REPORTLAB_AVAILABLE, db_save_event, get_or_create_user_id, db_save_export_file,
     db_list_exported, db_fetch_export_file, pdfcanvas
 )
-from app.ui import exports_ui
+try:
+    from app.ui import exports_ui
+except Exception:
+    class _ExportsUIShim:
+        @staticmethod
+        def export_dialog(parent):
+            QMessageBox.information(parent, "Exportar", "Funcionalidad de exportar no disponible en este entorno.")
+
+        @staticmethod
+        def export_session(parent, format="csv"):
+            QMessageBox.information(parent, "Exportar", "Exportar sesión no disponible.")
+
+        @staticmethod
+        def show_csv_table(parent, csv_path):
+            QMessageBox.information(parent, "CSV", f"Mostrar CSV: {csv_path}")
+
+        @staticmethod
+        def view_exports_dialog(parent):
+            QMessageBox.information(parent, "Ver exports", "Funcionalidad no disponible.")
+
+    exports_ui = _ExportsUIShim()
 
 from serial_thread import SerialThread
-from app.serial import serial_ui
+try:
+    from app.serial import serial_ui
+except Exception:
+    # Fallback shim: provide minimal functions used by MainWindow so the UI
+    # can load when the optional `app.serial.serial_ui` module is missing.
+    class _SerialUIShim:
+        @staticmethod
+        def toggle_connection(parent):
+            # no-op: indicate no serial available
+            return False
+
+        @staticmethod
+        def _scan_ports(parent):
+            try:
+                import serial
+                ports = [p.device for p in serial.tools.list_ports.comports()]
+            except Exception:
+                ports = []
+            parent.port_combo.clear()
+            parent.port_combo.addItems(ports)
+
+        @staticmethod
+        def on_connected(parent, ok):
+            # update UI accordingly
+            parent.update_ui()
+
+        @staticmethod
+        def start_simulation(parent):
+            parent.sim_timer = QTimer(parent)
+            parent.sim_timer.timeout.connect(parent.simulate_sensor_event)
+            parent.sim_timer.start(parent.sim_interval_ms)
+
+        @staticmethod
+        def stop_simulation(parent):
+            try:
+                if getattr(parent, 'sim_timer', None):
+                    parent.sim_timer.stop()
+            except Exception:
+                pass
+
+        @staticmethod
+        def simulate_sensor_event(parent):
+            # simple simulation: toggle sensor
+            parent.on_line('SENSOR:1')
+
+    serial_ui = _SerialUIShim()
 from app.logic import line_processing
 
 
