@@ -1,3 +1,5 @@
+"""Shared helpers moved into app.utils"""
+
 import sys
 import os
 import webbrowser
@@ -11,6 +13,9 @@ import re
 import base64
 import binascii
 from io import BytesIO, StringIO
+import logging
+
+logger = logging.getLogger(__name__)
 
 # optional serial is handled in serial_thread module
 
@@ -30,8 +35,8 @@ except Exception:
 
 # constants
 MAX_WIDTH = 820
-SETTINGS_FILE = Path(__file__).parent / "settings.json"
-EXPORTS_DIR = Path(__file__).parent / "exports"
+SETTINGS_FILE = Path(__file__).parent.parent / "settings.json"
+EXPORTS_DIR = Path(__file__).parent.parent / "exports"
 EXPORTS_DIR.mkdir(exist_ok=True)
 EXPORTS_SESSION = EXPORTS_DIR / "session"
 EXPORTS_BD = EXPORTS_DIR / "bd"
@@ -57,8 +62,8 @@ def save_settings(settings: dict):
     try:
         with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print("No se pudo guardar settings:", e)
+    except Exception:
+        logger.exception("No se pudo guardar settings")
 
 
 def get_db_conn():
@@ -66,8 +71,8 @@ def get_db_conn():
         return None
     try:
         return get_connection()
-    except Exception as e:
-        print("DB get_db_conn error:", e)
+    except Exception:
+        logger.exception("DB get_db_conn error")
         return None
 
 
@@ -90,8 +95,8 @@ def get_or_create_user_id(username: str):
         except Exception:
             pass
         return cursor.lastrowid if hasattr(cursor, "lastrowid") else None
-    except Exception as e:
-        print("DB get_or_create_user_id error:", e)
+    except Exception:
+        logger.exception("DB get_or_create_user_id error")
         return None
     finally:
         try:
@@ -119,8 +124,8 @@ def db_save_event(user_id, tipo_evento, detalle, origen, valor):
         except Exception:
             pass
         return True
-    except Exception as e:
-        print("DB save_event error:", e)
+    except Exception:
+        logger.exception("DB save_event error")
         return False
     finally:
         try:
@@ -246,11 +251,11 @@ def db_save_export_file(user_id, formato, filename=None, content_bytes=None):
             except Exception:
                 pass
             return True
-        except Exception as e:
-            print("DB save_export_file error:", e)
+        except Exception:
+            logger.exception("DB save_export_file error")
             return False
-    except Exception as e:
-        print("DB save_export_file error:", e)
+    except Exception:
+        logger.exception("DB save_export_file error")
         return False
     finally:
         try:
@@ -347,8 +352,8 @@ def db_list_exported(formato=None):
         except Exception:
             out_sorted = out
         return out_sorted
-    except Exception as e:
-        print("db_list_exported error:", e)
+    except Exception:
+        logger.exception("db_list_exported error")
         return []
     finally:
         try:
@@ -456,8 +461,8 @@ def db_fetch_export_file(rec_id):
             except Exception:
                 continue
         return None
-    except Exception as e:
-        print("db_fetch_export_file error:", e)
+    except Exception:
+        logger.exception("db_fetch_export_file error")
         return None
     finally:
         try:

@@ -1,3 +1,7 @@
+"""
+Moved `main_window.py` into `app.gui` package.
+"""
+
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QGridLayout, QMessageBox, QComboBox, QPlainTextEdit, QSizePolicy,
@@ -13,16 +17,18 @@ import re
 import csv
 import base64
 
-from shared import (
+from app.utils.shared import (
     MAX_WIDTH, load_settings, save_settings, EXPORTS_SESSION, EXPORTS_BD,
     REPORTLAB_AVAILABLE, db_save_event, get_or_create_user_id, db_save_export_file,
     db_list_exported, db_fetch_export_file, pdfcanvas
 )
-from app.ui import exports_ui
 
-from serial_thread import SerialThread
+import logging
+from app.workers.serial_thread import SerialThread
 from app.serial import serial_ui
 from app.logic import line_processing
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QWidget):
@@ -32,7 +38,6 @@ class MainWindow(QWidget):
         self.setWindowTitle(f"Protoboard - Usuario: {username}")
         self.resize(900, 640)
 
-        # session-only history (in-memory)
         self.history = []
 
         self.total_counter = 0
@@ -68,8 +73,8 @@ class MainWindow(QWidget):
                 self.db_user_id = get_or_create_user_id(self.username)
                 if self.db_user_id:
                     self.db_available = True
-        except Exception as e:
-            print("DB init error:", e)
+        except Exception:
+            logger.exception("DB init error")
             self.db_user_id = None
             self.db_available = False
 
@@ -79,7 +84,7 @@ class MainWindow(QWidget):
 
         try:
             # if serial not available, start simulation; serial_thread module exposes 'serial' variable
-            from serial_thread import serial
+            from app.workers.serial_thread import serial
             if serial is None:
                 self.start_simulation()
         except Exception:
@@ -347,21 +352,41 @@ class MainWindow(QWidget):
 
     # ---------------- export logic ----------------
     def export_dialog(self):
-        return exports_ui.export_dialog(self)
+        try:
+            from app.ui import exports_ui
+            return exports_ui.export_dialog(self)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Módulo de exportación no disponible: {e}")
+            return None
 
     def _safe_timestamp_str(self):
         return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     def export_session(self, format="csv"):
-        return exports_ui.export_session(self, format=format)
+        try:
+            from app.ui import exports_ui
+            return exports_ui.export_session(self, format=format)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Módulo de exportación no disponible: {e}")
+            return None
 
     # ---------------- show CSV in table ----------------
     def show_csv_table(self, csv_path: Path):
-        return exports_ui.show_csv_table(self, csv_path)
+        try:
+            from app.ui import exports_ui
+            return exports_ui.show_csv_table(self, csv_path)
+        except Exception as e:
+            QMessageBox.information(self, "Abrir CSV", f"No se pudo abrir CSV: {e}")
+            return None
 
     # ---------------- view exports (BD-only) ----------------
     def view_exports_dialog(self):
-        return exports_ui.view_exports_dialog(self)
+        try:
+            from app.ui import exports_ui
+            return exports_ui.view_exports_dialog(self)
+        except Exception as e:
+            QMessageBox.information(self, "Ver exportados", f"No se pudo acceder a exportaciones: {e}")
+            return None
 
     # ---------------- UI update ----------------
     def update_ui(self):

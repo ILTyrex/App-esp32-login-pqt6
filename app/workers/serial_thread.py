@@ -1,6 +1,11 @@
+"""Moved serial_thread.py into app.workers"""
+
 from PyQt6.QtCore import QThread, pyqtSignal
 import time
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import serial
@@ -28,7 +33,7 @@ class SerialThread(QThread):
             self.ser = serial.Serial(self.port, self.baud, timeout=0.1)
             self.connected.emit(True)
         except Exception as e:
-            print("Serial open error:", e)
+            logger.exception("Serial open error")
             self.connected.emit(False)
             return
 
@@ -40,7 +45,7 @@ class SerialThread(QThread):
                         self.line_received.emit(line)
                 self.msleep(10)
             except Exception as e:
-                print("Serial read error:", e)
+                logger.exception("Serial read error")
                 break
 
         try:
@@ -58,18 +63,12 @@ class SerialThread(QThread):
             self.ser.write((data + "\n").encode())
 
     def hardware_reset(self, pulse_ms: float = 0.05) -> bool:
-        """
-        Perform a hardware reset by toggling DTR/RTS lines on the open serial port.
-        If the internal serial is not open, try opening a temporary Serial to perform the pulse.
-        Returns True on success, False otherwise.
-        """
         if serial is None:
             return False
 
         try:
             if self.ser and getattr(self.ser, 'is_open', False):
                 try:
-                    # apply a short pulse
                     self.ser.setDTR(False)
                     self.ser.setRTS(True)
                     time.sleep(pulse_ms)
@@ -77,10 +76,8 @@ class SerialThread(QThread):
                     self.ser.setRTS(False)
                     return True
                 except Exception:
-                    # fallthrough to try temporary open
                     pass
 
-            # try opening a temporary serial port to pulse DTR/RTS
             tmp = None
             try:
                 tmp = serial.Serial(self.port, self.baud, timeout=1)
@@ -106,7 +103,6 @@ class SerialThread(QThread):
 
     @staticmethod
     def hardware_reset_port(port: str, baud: int = 115200, pulse_ms: float = 0.05) -> bool:
-        """Static helper: perform hardware reset on given port even if no SerialThread exists."""
         if serial is None:
             return False
         try:
@@ -130,13 +126,6 @@ class SerialThread(QThread):
 
     @staticmethod
     def detect_esp32_port(port: str, baud: int = 115200, timeout: float = 1.5) -> bool:
-        """
-        Heurística para detectar si el dispositivo en `port` es un ESP32.
-        - Primero inspecciona `serial.tools.list_ports` buscando VID/PID/description conocidas.
-        - Si eso no confirma, intenta un pulso DTR corto para forzar mensajes de arranque
-          y busca patrones típicos en la salida serie (p.ej. 'ets', 'rst:', 'ESP32').
-        Devuelve True si parece ESP32, False si no.
-        """
         if serial is None:
             return False
 
@@ -147,7 +136,6 @@ class SerialThread(QThread):
                     if p.device == port:
                         info = " ".join([str(p.vid or ''), str(p.pid or ''), str(p.manufacturer or ''), str(p.product or ''), str(p.description or '')])
                         info_l = info.lower()
-                        # common markers for ESP32 dev boards / usb-serial chips
                         markers = ["silicon labs", "cp210", "ch340", "ch915", "ftdi", "usb-serial", "esp32", "espressif"]
                         for m in markers:
                             if m in info_l:
@@ -155,11 +143,9 @@ class SerialThread(QThread):
                 except Exception:
                     continue
 
-            # fallback: open port, pulse DTR to force boot messages, read output
             ser = None
             try:
                 ser = serial.Serial(port, baud, timeout=0.2)
-                # pulse DTR/RTS
                 try:
                     ser.setDTR(False)
                     ser.setRTS(True)
@@ -176,7 +162,6 @@ class SerialThread(QThread):
                         if ser.in_waiting:
                             chunk = ser.read(ser.in_waiting).decode(errors='ignore')
                             buf += chunk
-                            # look for typical ESP32 boot/ROM markers
                             if re.search(r"ets |rst:|esp32|espressif|chip", buf, re.IGNORECASE):
                                 try:
                                     ser.close()

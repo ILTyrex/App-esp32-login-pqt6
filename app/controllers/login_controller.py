@@ -6,6 +6,9 @@ from app.models.usuario import UsuarioModel
 from app.controllers.register_controller import RegisterController
 from app.controllers.main_controller import MainController
 from app.utils.auth_service import verify_password
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LoginWorker(QObject):
     finished = pyqtSignal(bool, str)
@@ -76,11 +79,51 @@ class LoginController(QMainWindow):
 
     def on_login_finished(self, success, msg):
         if success:
+            logger.debug("Login successful - mensaje: %s", msg)
             QMessageBox.information(self, "Éxito", msg)
             # Crear la controller principal. `MainController` internamente crea/mostrar
             # la ventana real del protoboard, por lo que no necesitamos llamar a show()
-            self.main_window = MainController(username=self.inputUser.text().strip())
-            self.hide()
+            try:
+                # Primero intentamos crear la MainWindow directamente (más robusto)
+                try:
+                    from app.gui.main_window import MainWindow
+                    logger.debug("Creando MainWindow directamente...")
+                    self.protoboard = MainWindow(username=self.inputUser.text().strip())
+                    logger.debug("MainWindow creado, mostrando...")
+                    self.protoboard.show()
+                    try:
+                        self.protoboard.raise_()
+                        self.protoboard.activateWindow()
+                    except Exception:
+                        pass
+                    # mantener referencia y ocultar login
+                    self.hide()
+                    return
+                except Exception as e:
+                    logger.warning("No se pudo crear MainWindow directamente: %s", e)
+
+                logger.debug("Creando MainController como fallback...")
+                self.main_window = MainController(username=self.inputUser.text().strip())
+                logger.debug("MainController creado: %s", getattr(self, 'main_window', None))
+            except Exception as e:
+                logger.exception("Excepción al crear MainController")
+            # Si no se creó ninguna ventana visible, avisar al usuario
+            if not getattr(self, 'protoboard', None) and not getattr(self, 'main_window', None):
+                QMessageBox.critical(self, "Error", "No se pudo abrir el panel principal. Revisa la consola para más detalles.")
+            else:
+                # si alguna ventana fue creada por MainController, intentamos asegurar que esté visible
+                try:
+                    if getattr(self, 'main_window', None) and getattr(self.main_window, 'protoboard', None):
+                        w = self.main_window.protoboard
+                        w.show()
+                        try:
+                            w.raise_()
+                            w.activateWindow()
+                        except Exception:
+                            pass
+                        self.hide()
+                except Exception:
+                    pass
         else:
             QMessageBox.critical(self, "Error", msg)
 

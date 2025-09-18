@@ -1,6 +1,9 @@
 import sys
+import logging
 from PyQt6.QtWidgets import QApplication, QWidget
 from PyQt6.QtCore import QTimer
+
+logger = logging.getLogger(__name__)
 
 try:
     from app.controllers.login_controller import LoginController
@@ -8,7 +11,7 @@ except Exception:
     LoginController = None
 
 try:
-    from main_window import MainWindow
+    from app.gui.main_window import MainWindow
 except Exception:
     MainWindow = None
 
@@ -45,7 +48,7 @@ def main():
         QTimer.singleShot(200, close_orphan_windows)
         sys.exit(app.exec())
 
-    print("No UI available: neither LoginController nor MainWindow could be imported.")
+    logger.error("No UI available: neither LoginController nor MainWindow could be imported.")
 
 
 if __name__ == "__main__":

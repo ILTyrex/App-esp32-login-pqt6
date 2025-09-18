@@ -1,24 +1,32 @@
 # app/controllers/main_controller.py
+import logging
 from PyQt6 import uic
 from PyQt6.QtWidgets import QMainWindow
 
-# Importa la MainWindow real (panel protoboard) desde python.py
-# Si renombrás python.py -> pyqt_serial_counter.py, cambiar aquí la importación.
-try:
-    from python import MainWindow as ProtoboardWindow
-except Exception:
-    ProtoboardWindow = None
-
+logger = logging.getLogger(__name__)
 
 class MainController(QMainWindow):
     def __init__(self, username=None):
         super().__init__()
-        # Intentamos abrir la ventana del protoboard.
-        # Si no se puede (ProtoboardWindow es None) cargamos el UI simple por compatibilidad.
+        # Import MainWindow lazily to avoid import-time failures when some
+        # submodules are not yet available. This makes the controller more
+        # robust during application startup and when running in different
+        # environments.
+        ProtoboardWindow = None
+        try:
+            from app.gui.main_window import MainWindow as ProtoboardWindow
+        except Exception:
+            logger.warning("No se pudo importar app.gui.main_window", exc_info=True)
+
+        logger.debug("ProtoboardWindow is: %s", ProtoboardWindow)
         if ProtoboardWindow is not None:
-            # Creamos directamente la ventana completa y la mostramos.
-            self.protoboard = ProtoboardWindow(username=username)
-            self.protoboard.show()
+            try:
+                logger.debug("Instanciando ProtoboardWindow con usuario: %s", username)
+                self.protoboard = ProtoboardWindow(username=username)
+                logger.debug("Mostrando ProtoboardWindow")
+                self.protoboard.show()
+            except Exception:
+                logger.exception("Error creando/mostrando ProtoboardWindow")
             # Cerramos este QMainWindow ya que no hace falta
             self.close()
             return

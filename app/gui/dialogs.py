@@ -7,8 +7,8 @@ from PyQt6.QtCore import Qt
 
 USER_RE = re.compile(r"^[^\s]{3,32}$")
 
+
 class RegisterDialog(QDialog):
-    """Diálogo simple para registrar con usuario + contraseña + confirmar."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Registrar nuevo usuario")
@@ -44,23 +44,16 @@ class RegisterDialog(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
 
     def get_data(self):
-        """Devuelve (username, pwd, pwd_confirm)"""
         return self.user_edit.text().strip(), self.pwd_edit.text(), self.pwd_confirm.text()
 
 
 class LoginDialog(QDialog):
-    """
-    Login simple en memoria. Usuarios se mantienen en self._users (dict).
-    Clave: usuario -> contraseña en texto (solo para demo).
-    Usuario por defecto: admin / admin
-    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Login")
         self.setModal(True)
         self.resize(400, 170)
 
-        # usuarios en memoria: usuario -> password
         self._users = {"admin": "admin"}
 
         layout = QVBoxLayout()
@@ -92,9 +85,8 @@ class LoginDialog(QDialog):
         self.register_btn.clicked.connect(self.open_register)
         self.cancel_btn.clicked.connect(self.reject)
 
-        self.result_username = None 
+        self.result_username = None
 
-    # ---------- Login ----------
     def attempt_login(self):
         user = self.user_edit.text().strip()
         pwd = self.pwd_edit.text()
@@ -111,7 +103,6 @@ class LoginDialog(QDialog):
         self.result_username = user
         self.accept()
 
-    # ---------- Registro ----------
     def open_register(self):
         dlg = RegisterDialog(self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
@@ -120,7 +111,6 @@ class LoginDialog(QDialog):
         user, pwd, pwd_confirm = dlg.get_data()
         user = user.strip()
 
-        # Validaciones
         if not user or not pwd or not pwd_confirm:
             QMessageBox.warning(self, "Datos faltantes", "Rellena usuario, contraseña y confirmar.")
             return
@@ -137,6 +127,5 @@ class LoginDialog(QDialog):
             QMessageBox.critical(self, "Registro", "El usuario ya existe (en memoria).")
             return
 
-        # Guardar en memoria
         self._users[user] = pwd
         QMessageBox.information(self, "Registro", "Cuenta creada en memoria. Ahora puedes iniciar sesión.")

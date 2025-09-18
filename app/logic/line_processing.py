@@ -2,15 +2,18 @@ from datetime import datetime
 from PyQt6.QtWidgets import QMessageBox
 import re
 import base64
+import logging
 
-from shared import db_save_event
+logger = logging.getLogger(__name__)
+
+from app.utils.shared import db_save_event
 
 
 def on_line(parent, line: str):
     line = line.strip()
     if not line:
         return
-    print("FROM ESP32:", line)
+    logger.debug("FROM ESP32: %s", line)
     up = line.upper()
 
     # handle RESET ack explicitly
@@ -130,7 +133,7 @@ def gui_toggle_led(parent, idx: int):
 
 
 def reset_total(parent):
-    from serial_thread import SerialThread as _SerialThread
+    from app.workers.serial_thread import SerialThread as _SerialThread
     confirm = QMessageBox.question(parent, "Confirmar reset",
                                    "¿Deseas reiniciar el contador (solo cuenta activaciones del sensor)?",
                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -157,15 +160,15 @@ def reset_total(parent):
                 sel = parent.port_combo.currentText()
                 if sel:
                     _SerialThread.hardware_reset_port(sel, 115200)
-        except Exception as e:
-            print("Reset error:", e)
+        except Exception:
+            logger.exception("Reset error")
         if parent.db_user_id:
             db_save_event(parent.db_user_id, "RESET_CONTADOR", "CONTADOR", "APP", "0")
         parent.update_ui()
 
 
 def on_reset_ack_timeout(parent):
-    from serial_thread import SerialThread as _SerialThread
+    from app.workers.serial_thread import SerialThread as _SerialThread
     try:
         if parent._waiting_reset_ack:
             parent._waiting_reset_ack = False
@@ -173,5 +176,5 @@ def on_reset_ack_timeout(parent):
             if sel:
                 _SerialThread.hardware_reset_port(sel, 115200)
             QMessageBox.information(parent, "Reset", "No se recibió ACK de ESP32; se ejecutó reset hardware como fallback.")
-    except Exception as e:
-        print("Reset ACK timeout handler error:", e)
+    except Exception:
+        logger.exception("Reset ACK timeout handler error")
