@@ -53,7 +53,7 @@ class MainWindow(QWidget):
         self._reset_ack_timer.setSingleShot(True)
         self._reset_ack_timer.timeout.connect(self._on_reset_ack_timeout)
 
-        # Port scan timer for auto-detection
+    # Port scan timer for auto-detection
         self._port_scan_timer = QTimer(self)
         self._port_scan_timer.setInterval(1500)
         self._port_scan_timer.timeout.connect(self._scan_ports)
@@ -89,6 +89,22 @@ class MainWindow(QWidget):
                 self.start_simulation()
         except Exception:
             self.start_simulation()
+        # If app.serial.serial_ui failed to import, ensure we default to simulation and avoid None calls
+        try:
+            from app import serial as _serial_pkg
+            if getattr(_serial_pkg, 'serial_ui', None) is None:
+                logger.warning("app.serial.serial_ui is None; falling back to simulation mode")
+                # ensure simulation is running if no serial support
+                if not getattr(self, 'sim_timer', None):
+                    self.start_simulation()
+        except Exception:
+            # If even importing app.serial fails unexpectedly, fall back to simulation
+            try:
+                logger.exception("Error checking app.serial; enabling simulation")
+            except Exception:
+                pass
+            if not getattr(self, 'sim_timer', None):
+                self.start_simulation()
 
     # QSS methods (same as before)
     def qss_light(self):
@@ -317,21 +333,74 @@ class MainWindow(QWidget):
 
     # Serial / simulation
     def toggle_connection(self):
+        if serial_ui is None:
+            # no serial support; toggle simulation instead
+            if getattr(self, 'sim_timer', None):
+                self.stop_simulation()
+                return False
+            else:
+                self.start_simulation()
+                return True
         return serial_ui.toggle_connection(self)
 
     def _scan_ports(self):
+        if serial_ui is None:
+            # nothing to scan; clear combo and return
+            try:
+                self.port_combo.clear()
+            except Exception:
+                pass
+            return None
         return serial_ui._scan_ports(self)
 
     def on_connected(self, ok):
+        if serial_ui is None:
+            # reflect connection state in UI (simulation never 'connects')
+            try:
+                if ok:
+                    self.connect_btn.setText("🔌  Desconectar")
+                else:
+                    self.connect_btn.setText("🔌  Conectar")
+            except Exception:
+                pass
+            return None
         return serial_ui.on_connected(self, ok)
 
     def start_simulation(self):
+        if serial_ui is None:
+            # local simulation implementation exists; call local helper
+            try:
+                # keep existing behavior from serial_ui.start_simulation
+                if getattr(self, 'sim_timer', None):
+                    self.sim_timer.stop()
+                self.sim_timer = QTimer(self)
+                self.sim_timer.setInterval(getattr(self, 'sim_interval_ms', 7000))
+                self.sim_timer.timeout.connect(lambda: self.simulate_sensor_event())
+                self.sim_timer.start()
+            except Exception:
+                pass
+            return None
         return serial_ui.start_simulation(self)
 
     def stop_simulation(self):
+        if serial_ui is None:
+            try:
+                if getattr(self, 'sim_timer', None):
+                    self.sim_timer.stop()
+            except Exception:
+                pass
+            return None
         return serial_ui.stop_simulation(self)
 
     def simulate_sensor_event(self):
+        if serial_ui is None:
+            try:
+                # toggle sensor locally
+                self.handle_sensor_activation(True)
+                QTimer.singleShot(400, lambda: self.handle_sensor_activation(False))
+            except Exception:
+                pass
+            return None
         return serial_ui.simulate_sensor_event(self)
 
     # Line processing
