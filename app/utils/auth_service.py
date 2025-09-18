@@ -1,7 +1,7 @@
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
-# Configuración del hasher
+
 ph = PasswordHasher()
 
 def hash_password(password: str) -> str:
