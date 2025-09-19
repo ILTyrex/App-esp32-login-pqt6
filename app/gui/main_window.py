@@ -404,7 +404,8 @@ class MainWindow(QWidget):
     # ---------------- export logic ----------------
     def export_dialog(self):
         try:
-            from app.ui import exports_ui
+            import importlib
+            exports_ui = importlib.import_module('app.ui.exports_ui')
             return exports_ui.export_dialog(self)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Módulo de exportación no disponible: {e}")
@@ -415,7 +416,8 @@ class MainWindow(QWidget):
 
     def export_session(self, format="csv"):
         try:
-            from app.ui import exports_ui
+            import importlib
+            exports_ui = importlib.import_module('app.ui.exports_ui')
             return exports_ui.export_session(self, format=format)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Módulo de exportación no disponible: {e}")
@@ -424,7 +426,8 @@ class MainWindow(QWidget):
     # ---------------- show CSV in table ----------------
     def show_csv_table(self, csv_path: Path):
         try:
-            from app.ui import exports_ui
+            import importlib
+            exports_ui = importlib.import_module('app.ui.exports_ui')
             return exports_ui.show_csv_table(self, csv_path)
         except Exception as e:
             QMessageBox.information(self, "Abrir CSV", f"No se pudo abrir CSV: {e}")
@@ -433,7 +436,8 @@ class MainWindow(QWidget):
     # ---------------- view exports (BD-only) ----------------
     def view_exports_dialog(self):
         try:
-            from app.ui import exports_ui
+            import importlib
+            exports_ui = importlib.import_module('app.ui.exports_ui')
             return exports_ui.view_exports_dialog(self)
         except Exception as e:
             QMessageBox.information(self, "Ver exportados", f"No se pudo acceder a exportaciones: {e}")
