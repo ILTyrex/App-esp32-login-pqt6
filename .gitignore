@@ -35,7 +35,6 @@ ENV/
 *.pyc
 *.qmlc
 *_rc.py
-*_ui.py
 
 # --- Sistema operativo ---
 # macOS
