@@ -25,7 +25,6 @@ from app.utils.shared import (
 
 import logging
 from app.workers.serial_thread import SerialThread
-from app.serial import serial_ui
 from app.logic import line_processing
 
 logger = logging.getLogger(__name__)
@@ -83,9 +82,9 @@ class MainWindow(QWidget):
         self.update_ui()
 
         # Ensure serial ports list is populated; if pyserial missing, the combo stays empty
+        # Try to populate serial ports list using app.serial.serial_ui if available
         try:
             from app import serial as _serial_pkg
-            # populate port combo via serial_ui
             if getattr(_serial_pkg, 'serial_ui', None) is not None:
                 try:
                     _serial_pkg.serial_ui._scan_ports(self)
@@ -332,12 +331,36 @@ class MainWindow(QWidget):
 
     # Serial / simulation
     def toggle_connection(self):
+        try:
+            from app.serial import serial_ui
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Módulo serial no disponible: {e}")
+            return False
         return serial_ui.toggle_connection(self)
 
     def _scan_ports(self):
+        try:
+            from app.serial import serial_ui
+        except Exception:
+            try:
+                self.port_combo.clear()
+            except Exception:
+                pass
+            return None
         return serial_ui._scan_ports(self)
 
     def on_connected(self, ok):
+        try:
+            from app.serial import serial_ui
+        except Exception:
+            try:
+                if ok:
+                    self.connect_btn.setText("🔌  Desconectar")
+                else:
+                    self.connect_btn.setText("🔌  Conectar")
+            except Exception:
+                pass
+            return None
         return serial_ui.on_connected(self, ok)
 
     def start_simulation(self):
