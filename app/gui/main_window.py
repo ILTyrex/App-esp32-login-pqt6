@@ -82,29 +82,17 @@ class MainWindow(QWidget):
         self.apply_theme(self.current_theme)
         self.update_ui()
 
-        try:
-            # if serial not available, start simulation; serial_thread module exposes 'serial' variable
-            from app.workers.serial_thread import serial
-            if serial is None:
-                self.start_simulation()
-        except Exception:
-            self.start_simulation()
-        # If app.serial.serial_ui failed to import, ensure we default to simulation and avoid None calls
+        # Ensure serial ports list is populated; if pyserial missing, the combo stays empty
         try:
             from app import serial as _serial_pkg
-            if getattr(_serial_pkg, 'serial_ui', None) is None:
-                logger.warning("app.serial.serial_ui is None; falling back to simulation mode")
-                # ensure simulation is running if no serial support
-                if not getattr(self, 'sim_timer', None):
-                    self.start_simulation()
+            # populate port combo via serial_ui
+            if getattr(_serial_pkg, 'serial_ui', None) is not None:
+                try:
+                    _serial_pkg.serial_ui._scan_ports(self)
+                except Exception:
+                    pass
         except Exception:
-            # If even importing app.serial fails unexpectedly, fall back to simulation
-            try:
-                logger.exception("Error checking app.serial; enabling simulation")
-            except Exception:
-                pass
-            if not getattr(self, 'sim_timer', None):
-                self.start_simulation()
+            logger.exception("Error initializing serial ports list")
 
     # QSS methods (same as before)
     def qss_light(self):
@@ -187,6 +175,17 @@ class MainWindow(QWidget):
         except Exception:
             ports = []
         self.port_combo.addItems(ports)
+        # For quick testing, ensure COM1 is present and selected by default if available
+        try:
+            if "COM1" not in ports:
+                # add COM1 as an option but keep it last
+                self.port_combo.addItem("COM1")
+            # try to select COM1 by default
+            idx = self.port_combo.findText("COM1")
+            if idx >= 0:
+                self.port_combo.setCurrentIndex(idx)
+        except Exception:
+            pass
         self.port_combo.setMaximumWidth(220)
 
         self.connect_btn = QPushButton("🔌  Conectar")
@@ -333,75 +332,35 @@ class MainWindow(QWidget):
 
     # Serial / simulation
     def toggle_connection(self):
-        if serial_ui is None:
-            # no serial support; toggle simulation instead
-            if getattr(self, 'sim_timer', None):
-                self.stop_simulation()
-                return False
-            else:
-                self.start_simulation()
-                return True
         return serial_ui.toggle_connection(self)
 
     def _scan_ports(self):
-        if serial_ui is None:
-            # nothing to scan; clear combo and return
-            try:
-                self.port_combo.clear()
-            except Exception:
-                pass
-            return None
         return serial_ui._scan_ports(self)
 
     def on_connected(self, ok):
-        if serial_ui is None:
-            # reflect connection state in UI (simulation never 'connects')
-            try:
-                if ok:
-                    self.connect_btn.setText("🔌  Desconectar")
-                else:
-                    self.connect_btn.setText("🔌  Conectar")
-            except Exception:
-                pass
-            return None
         return serial_ui.on_connected(self, ok)
 
     def start_simulation(self):
-        if serial_ui is None:
-            # local simulation implementation exists; call local helper
-            try:
-                # keep existing behavior from serial_ui.start_simulation
-                if getattr(self, 'sim_timer', None):
-                    self.sim_timer.stop()
-                self.sim_timer = QTimer(self)
-                self.sim_timer.setInterval(getattr(self, 'sim_interval_ms', 7000))
-                self.sim_timer.timeout.connect(lambda: self.simulate_sensor_event())
-                self.sim_timer.start()
-            except Exception:
-                pass
-            return None
-        return serial_ui.start_simulation(self)
+        # Simulation removed; this method no longer supported
+        return None
 
     def stop_simulation(self):
-        if serial_ui is None:
-            try:
-                if getattr(self, 'sim_timer', None):
-                    self.sim_timer.stop()
-            except Exception:
-                pass
-            return None
-        return serial_ui.stop_simulation(self)
+        # Simulation removed; nothing to stop
+        try:
+            if getattr(self, 'sim_timer', None):
+                self.sim_timer.stop()
+        except Exception:
+            pass
+        return None
 
     def simulate_sensor_event(self):
-        if serial_ui is None:
-            try:
-                # toggle sensor locally
-                self.handle_sensor_activation(True)
-                QTimer.singleShot(400, lambda: self.handle_sensor_activation(False))
-            except Exception:
-                pass
-            return None
-        return serial_ui.simulate_sensor_event(self)
+        # Simulation removed; keep a no-op to maintain compatibility
+        try:
+            self.handle_sensor_activation(True)
+            QTimer.singleShot(400, lambda: self.handle_sensor_activation(False))
+        except Exception:
+            pass
+        return None
 
     # Line processing
     def on_line(self, line: str):
