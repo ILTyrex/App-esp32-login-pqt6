@@ -1,10 +1,12 @@
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QDialog, QVBoxLayout, QListWidget, QPushButton, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QFileDialog, QMessageBox, QDialog, QVBoxLayout, QListWidget, QPushButton, QHBoxLayout, QLabel, QPlainTextEdit
 from pathlib import Path
 import csv
 import os
 import webbrowser
 from datetime import datetime
 from io import BytesIO, StringIO
+import base64
+import shutil
 
 from app.utils.shared import (
     EXPORTS_SESSION,
@@ -15,11 +17,12 @@ from app.utils.shared import (
     REPORTLAB_AVAILABLE,
     pdfcanvas,
 )
+from app.utils.shared import get_db_conn
 
 
 def export_dialog(parent):
     try:
-        default = str(EXPORTS_SESSION / f"session_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
+        default = str(Path.home() / f"session_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
         path, _ = QFileDialog.getSaveFileName(parent, "Guardar exportación", default, "CSV (*.csv);;PDF (*.pdf)")
         if not path:
             return None
@@ -91,19 +94,25 @@ def export_session(parent, format="csv", filename: Path = None):
         else:
             ts = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
-        EXPORTS_SESSION.mkdir(parents=True, exist_ok=True)
+    # Do not create EXPORTS_SESSION automatically; if no filename provided, ask user where to save
 
         hist = getattr(parent, 'history', []) or []
 
         if format == 'csv':
             if not filename:
-                filename = EXPORTS_SESSION / f"session_{ts}.csv"
+                # ask where to save
+                default = str(Path.home() / f"session_{ts}.csv")
+                path, _ = QFileDialog.getSaveFileName(parent, "Guardar exportación (CSV)", default, "CSV (*.csv)")
+                if not path:
+                    return None
+                filename = Path(path)
             else:
                 filename = Path(filename)
             # create CSV bytes and save
             data_bytes = _make_csv_bytes(hist)
             with open(filename, 'wb') as f:
                 f.write(data_bytes)
+                # Do not create global EXPORTS_BD automatically; the user chose `filename` so keep only that.
             # try to store in DB if user id exists
             try:
                 uid = getattr(parent, 'db_user_id', None)
@@ -112,10 +121,6 @@ def export_session(parent, format="csv", filename: Path = None):
             except Exception:
                 pass
             QMessageBox.information(parent, "Exportado", f"CSV guardado en: {filename}")
-            try:
-                webbrowser.open(str(filename))
-            except Exception:
-                pass
             return filename
 
         elif format == 'pdf':
@@ -125,11 +130,16 @@ def export_session(parent, format="csv", filename: Path = None):
                 QMessageBox.information(parent, "Exportar PDF", "ReportLab no está disponible; no se puede generar PDF.")
                 return None
             if not filename:
-                filename = EXPORTS_SESSION / f"session_{ts}.pdf"
+                default = str(Path.home() / f"session_{ts}.pdf")
+                path, _ = QFileDialog.getSaveFileName(parent, "Guardar exportación (PDF)", default, "PDF (*.pdf)")
+                if not path:
+                    return None
+                filename = Path(path)
             else:
                 filename = Path(filename)
             with open(filename, 'wb') as f:
                 f.write(data_bytes)
+                # Do not create global EXPORTS_BD automatically; the user chose `filename` so keep only that.
             try:
                 uid = getattr(parent, 'db_user_id', None)
                 if uid:
@@ -137,10 +147,6 @@ def export_session(parent, format="csv", filename: Path = None):
             except Exception:
                 pass
             QMessageBox.information(parent, "Exportado", f"PDF guardado en: {filename}")
-            try:
-                webbrowser.open(str(filename))
-            except Exception:
-                pass
             return filename
 
         else:
@@ -164,9 +170,32 @@ def show_csv_table(parent, csv_path: Path):
 def view_exports_dialog(parent):
     try:
         rows = db_list_exported()
+        # If DB not available, inform user and fallback to filesystem listing
+        if get_db_conn() is None:
+            QMessageBox.information(parent, 'Exportados', 'No es posible conectar a la base de datos. Se listarán archivos en disco si existen.')
+
+        # If DB returned nothing, try filesystem fallback: list files under EXPORTS_BD
+        fs_mode = False
         if not rows:
-            QMessageBox.information(parent, "Exportados", "No hay archivos exportados registrados en BD.")
-            return
+            try:
+                files = []
+                if EXPORTS_BD.exists() and EXPORTS_BD.is_dir():
+                    for p in sorted(EXPORTS_BD.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True):
+                        if p.is_file():
+                            fmt = p.suffix.lstrip('.').upper() if p.suffix else ''
+                            # Use a synthetic id starting with FS: so we can detect it later
+                            rec_id = f"FS:{str(p)}"
+                            fecha = datetime.fromtimestamp(p.stat().st_mtime)
+                            files.append((rec_id, (fmt or '?'), p.name, fecha))
+                if files:
+                    rows = files
+                    fs_mode = True
+                else:
+                    QMessageBox.information(parent, "Exportados", "No hay archivos exportados registrados en BD.")
+                    return
+            except Exception:
+                QMessageBox.information(parent, "Exportados", "No hay archivos exportados registrados en BD.")
+                return
 
         dlg = QDialog(parent)
         dlg.setWindowTitle('Exportados (BD)')
@@ -197,33 +226,85 @@ def view_exports_dialog(parent):
                 QMessageBox.information(dlg, 'Seleccionar', 'Por favor selecciona un registro.')
                 return
             rec_id = id_map.get(sel.text())
+            # If this is a filesystem fallback entry, open the file directly
+            if isinstance(rec_id, str) and rec_id.startswith('FS:'):
+                fp = rec_id[3:]
+                try:
+                    if Path(fp).exists():
+                        webbrowser.open(str(fp))
+                        dlg.accept()
+                        return
+                    else:
+                        QMessageBox.information(dlg, 'Exportado', 'El archivo ya no existe en disco.')
+                        return
+                except Exception as e:
+                    QMessageBox.information(dlg, 'Exportado', f'No se pudo abrir el archivo: {e}')
+                    return
+
             data = db_fetch_export_file(rec_id)
             if not data:
                 QMessageBox.information(dlg, 'Exportado', 'No se pudo obtener contenido del registro.')
                 return
-            EXPORTS_BD.mkdir(parents=True, exist_ok=True)
-            # find row info to determine extension/filename
-            chosen = None
-            for r in rows:
-                if r[0] == rec_id:
-                    chosen = r
-                    break
-            fmt = (chosen[1] or '').lower() if chosen else ''
-            fn = chosen[2] if chosen and chosen[2] else f'export_{rec_id}.{fmt or "bin"}'
-            outp = EXPORTS_BD / fn
+
+            # If bytes, try detect PDF vs CSV. If str, treat as CSV text.
+            is_bytes = isinstance(data, (bytes, bytearray))
             try:
-                if isinstance(data, (bytes, bytearray)):
-                    outp.write_bytes(data)
+                if is_bytes:
+                    # detect PDF
+                    if data[:4] == b'%PDF':
+                        # Write to a system temp file and open with default PDF viewer
+                        import tempfile, os as _os
+                        try:
+                            tf = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+                            tf.write(data)
+                            tf.flush()
+                            tf.close()
+                            # On Windows use os.startfile, otherwise fallback to webbrowser
+                            try:
+                                _os.startfile(tf.name)
+                            except Exception:
+                                webbrowser.open(f'file://{tf.name}')
+                            dlg.accept()
+                            return
+                        except Exception as e:
+                            QMessageBox.information(dlg, 'Exportado', f'No se pudo abrir PDF temporal: {e}')
+                            return
+                    else:
+                        # attempt decode as text and show in dialog
+                        try:
+                            txt = data.decode('utf-8')
+                        except Exception:
+                            txt = data.decode('latin-1', errors='ignore')
+                        show_dlg = QDialog(parent)
+                        show_dlg.setWindowTitle('Exportado (vista)')
+                        v = QVBoxLayout(show_dlg)
+                        te = QPlainTextEdit()
+                        te.setReadOnly(True)
+                        te.setPlainText(txt)
+                        v.addWidget(te)
+                        btn = QPushButton('Cerrar')
+                        btn.clicked.connect(show_dlg.accept)
+                        v.addWidget(btn)
+                        show_dlg.exec()
+                        return
                 else:
-                    outp.write_text(str(data), encoding='utf-8')
+                    # string-like: show as CSV text
+                    txt = str(data)
+                    show_dlg = QDialog(parent)
+                    show_dlg.setWindowTitle('Exportado (vista)')
+                    v = QVBoxLayout(show_dlg)
+                    te = QPlainTextEdit()
+                    te.setReadOnly(True)
+                    te.setPlainText(txt)
+                    v.addWidget(te)
+                    btn = QPushButton('Cerrar')
+                    btn.clicked.connect(show_dlg.accept)
+                    v.addWidget(btn)
+                    show_dlg.exec()
+                    return
             except Exception as e:
-                QMessageBox.information(dlg, 'Guardar', f'No se pudo guardar archivo: {e}')
+                QMessageBox.information(dlg, 'Exportado', f'No se pudo mostrar el contenido en memoria: {e}')
                 return
-            try:
-                webbrowser.open(str(outp))
-            except Exception:
-                pass
-            dlg.accept()
 
         btn_open.clicked.connect(on_open)
         btn_cancel.clicked.connect(dlg.reject)

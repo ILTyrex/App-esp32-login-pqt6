@@ -37,11 +37,10 @@ except Exception:
 MAX_WIDTH = 820
 SETTINGS_FILE = Path(__file__).parent.parent / "settings.json"
 EXPORTS_DIR = Path(__file__).parent.parent / "exports"
-EXPORTS_DIR.mkdir(exist_ok=True)
 EXPORTS_SESSION = EXPORTS_DIR / "session"
 EXPORTS_BD = EXPORTS_DIR / "bd"
-EXPORTS_SESSION.mkdir(parents=True, exist_ok=True)
-EXPORTS_BD.mkdir(parents=True, exist_ok=True)
+# Note: Do not create export directories automatically. The UI will ask user where to save
+# and will only create directories on explicit user action.
 
 
 def load_settings():
