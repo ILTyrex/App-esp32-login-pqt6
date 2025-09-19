@@ -1,7 +1,3 @@
-"""
-Moved `main_window.py` into `app.gui` package.
-"""
-
 from PyQt6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QGridLayout, QMessageBox, QComboBox, QPlainTextEdit, QSizePolicy,
@@ -44,8 +40,6 @@ class MainWindow(QWidget):
         self.sensor_last_state = False
 
         self.serial_thread = None
-        self.sim_timer = None
-        self.sim_interval_ms = 7000
         # reset ACK handling
         self._waiting_reset_ack = False
         self._reset_ack_timer = QTimer(self)
@@ -81,8 +75,6 @@ class MainWindow(QWidget):
         self.apply_theme(self.current_theme)
         self.update_ui()
 
-        # Ensure serial ports list is populated; if pyserial missing, the combo stays empty
-        # Try to populate serial ports list using app.serial.serial_ui if available
         try:
             from app import serial as _serial_pkg
             if getattr(_serial_pkg, 'serial_ui', None) is not None:
@@ -93,7 +85,6 @@ class MainWindow(QWidget):
         except Exception:
             logger.exception("Error initializing serial ports list")
 
-    # QSS methods (same as before)
     def qss_light(self):
         return """
         QWidget { background: #f3f6fb; color: #222; font-family: "Segoe UI", Roboto, Arial, sans-serif; }
@@ -174,12 +165,9 @@ class MainWindow(QWidget):
         except Exception:
             ports = []
         self.port_combo.addItems(ports)
-        # For quick testing, ensure COM1 is present and selected by default if available
         try:
             if "COM1" not in ports:
-                # add COM1 as an option but keep it last
                 self.port_combo.addItem("COM1")
-            # try to select COM1 by default
             idx = self.port_combo.findText("COM1")
             if idx >= 0:
                 self.port_combo.setCurrentIndex(idx)
@@ -310,12 +298,9 @@ class MainWindow(QWidget):
         note = QLabel()
         try:
             import serial
-            if serial is None:
-                note.setText("Modo SIMULACIÓN: pyserial no instalado. Activaciones del sensor se simulan.")
-            else:
-                note.setText("ESP32 debe enviar: BTN:1..3 (pulsadores), SENSOR:1/0 (sensor) y opcional ACK:LED:n:v.")
+            note.setText("ESP32 debe enviar: BTN:1..3 (pulsadores), SENSOR:1/0 (sensor) y opcional ACK:LED:n:v.")
         except Exception:
-            note.setText("Modo SIMULACIÓN: pyserial no instalado. Activaciones del sensor se simulan.")
+            note.setText("pyserial no instalado o no disponible. Conecta el ESP32 para funcionalidades seriales.")
         note.setProperty("class", "smallNote")
         content_layout.addWidget(note)
 
@@ -329,7 +314,7 @@ class MainWindow(QWidget):
         center_h.addStretch()
         outer.addLayout(center_h)
 
-    # Serial / simulation
+    # Serial
     def toggle_connection(self):
         try:
             from app.serial import serial_ui
@@ -362,28 +347,6 @@ class MainWindow(QWidget):
                 pass
             return None
         return serial_ui.on_connected(self, ok)
-
-    def start_simulation(self):
-        # Simulation removed; this method no longer supported
-        return None
-
-    def stop_simulation(self):
-        # Simulation removed; nothing to stop
-        try:
-            if getattr(self, 'sim_timer', None):
-                self.sim_timer.stop()
-        except Exception:
-            pass
-        return None
-
-    def simulate_sensor_event(self):
-        # Simulation removed; keep a no-op to maintain compatibility
-        try:
-            self.handle_sensor_activation(True)
-            QTimer.singleShot(400, lambda: self.handle_sensor_activation(False))
-        except Exception:
-            pass
-        return None
 
     # Line processing
     def on_line(self, line: str):
@@ -513,5 +476,4 @@ class MainWindow(QWidget):
         save_settings({"theme": self.current_theme})
         if self.serial_thread and self.serial_thread.isRunning():
             self.serial_thread.stop()
-        self.stop_simulation()
         super().closeEvent(event)

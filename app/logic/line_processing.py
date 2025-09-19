@@ -13,7 +13,7 @@ def on_line(parent, line: str):
     line = line.strip()
     if not line:
         return
-    logger.debug("FROM ESP32: %s", line)
+    
     up = line.upper()
 
     # handle RESET ack explicitly
@@ -94,19 +94,16 @@ def handle_sensor_activation(parent, is_on: bool):
     parent.led_states[3] = is_on
 
     if (not prev) and is_on:
-        # Only increment the persistent counter if the ESP32 is actually connected
         if getattr(parent, 'serial_thread', None) and getattr(parent.serial_thread, 'isRunning', lambda: False)():
             parent.total_counter += 1
             parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON"))
             if parent.db_user_id:
                 db_save_event(parent.db_user_id, "SENSOR_BLOQUEADO", "SENSOR_IR", "CIRCUITO", f"contador={parent.total_counter}")
         else:
-            # Simulation or local sensor - do not increment persistent counter, but still record in history
-            parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON_SIMULATION"))
+            parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON"))
     else:
         parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON" if is_on else "SENSOR_OFF"))
         if parent.db_user_id:
-            # Only log DB events for real ESP32-driven sensor changes
             if getattr(parent, 'serial_thread', None) and getattr(parent.serial_thread, 'isRunning', lambda: False)():
                 tipo = "SENSOR_BLOQUEADO" if is_on else "SENSOR_LIBRE"
                 db_save_event(parent.db_user_id, tipo, "SENSOR_IR", "CIRCUITO", "1" if is_on else "0")

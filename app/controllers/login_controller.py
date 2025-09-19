@@ -79,7 +79,6 @@ class LoginController(QMainWindow):
 
     def on_login_finished(self, success, msg):
         if success:
-            logger.debug("Login successful - mensaje: %s", msg)
             QMessageBox.information(self, "Éxito", msg)
             # Crear la controller principal. `MainController` internamente crea/mostrar
             # la ventana real del protoboard, por lo que no necesitamos llamar a show()
@@ -87,9 +86,7 @@ class LoginController(QMainWindow):
                 # Primero intentamos crear la MainWindow directamente (más robusto)
                 try:
                     from app.gui.main_window import MainWindow
-                    logger.debug("Creando MainWindow directamente...")
                     self.protoboard = MainWindow(username=self.inputUser.text().strip())
-                    logger.debug("MainWindow creado, mostrando...")
                     self.protoboard.show()
                     try:
                         self.protoboard.raise_()
@@ -102,9 +99,9 @@ class LoginController(QMainWindow):
                 except Exception as e:
                     logger.warning("No se pudo crear MainWindow directamente: %s", e)
 
-                logger.debug("Creando MainController como fallback...")
+                
                 self.main_window = MainController(username=self.inputUser.text().strip())
-                logger.debug("MainController creado: %s", getattr(self, 'main_window', None))
+                
             except Exception as e:
                 logger.exception("Excepción al crear MainController")
             # Si no se creó ninguna ventana visible, avisar al usuario
