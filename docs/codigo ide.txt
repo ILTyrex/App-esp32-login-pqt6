@@ -1,0 +1,259 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+#include <Wire.h>
+#include <LiquidCrystal_PCF8574.h>
+
+LiquidCrystal_PCF8574 lcd(0x27);
+
+// Pins
+const int BTN1 = 18;  // BLUE
+const int BTN2 = 19;  // RED
+const int BTN3 = 21;  // GREEN
+const int SENSOR = 34;
+
+const int LED_BLUE  = 27;  
+const int LED_RED   = 26;  
+const int LED_GREEN = 25;  
+const int LED4 = 14;  // parpadeo al contar sensor
+
+// Estados de LEDs
+bool stateRed = false;
+bool stateGreen = false;
+bool stateBlue = false;
+
+// Estados anteriores botones
+bool lastBtn1 = LOW;
+bool lastBtn2 = LOW;
+bool lastBtn3 = LOW;
+
+int counter = 0;
+int lastSensorState;
+
+void showCounter() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Counter:");
+  lcd.setCursor(0, 1);
+  lcd.print(counter);
+}
+
+void showMessage(const char* message) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(message);
+  delay(1000); 
+  showCounter();
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Starting LCD...");
+
+  Wire.begin(16, 17);
+
+  lcd.begin(16, 2);
+  lcd.setBacklight(255); 
+  lcd.clear();
+
+  showCounter();
+
+  pinMode(BTN1, INPUT);
+  pinMode(BTN2, INPUT);
+  pinMode(BTN3, INPUT);
+  pinMode(SENSOR, INPUT);
+
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
+  pinMode(LED4, OUTPUT);
+
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+  digitalWrite(LED_BLUE, LOW);
+  digitalWrite(LED4, LOW);
+
+  lastSensorState = digitalRead(SENSOR);
+
+  connectWiFi();
+
+}
+
+void loop() {
+  // ----------- LECTURA BOTONES -----------
+  bool btn1 = digitalRead(BTN1);
+  bool btn2 = digitalRead(BTN2);
+  bool btn3 = digitalRead(BTN3);
+
+  if (lastBtn1 == LOW && btn1 == HIGH) {
+    stateBlue = !stateBlue;
+    digitalWrite(LED_BLUE, stateBlue);
+    Serial.print("ACK:LED:1:");
+    Serial.println(stateBlue ? "1" : "0");
+    showMessage(stateBlue ? "Button BLUE ON" : "Button BLUE OFF");
+    updateLed(1, stateBlue);
+  }
+  lastBtn1 = btn1;
+
+  if (lastBtn2 == LOW && btn2 == HIGH) {
+    stateRed = !stateRed;
+    digitalWrite(LED_RED, stateRed);
+    Serial.print("ACK:LED:2:");
+    Serial.println(stateRed ? "1" : "0");
+    showMessage(stateRed ? "Button RED ON" : "Button RED OFF");
+    updateLed(2, stateRed);
+  }
+  lastBtn2 = btn2;
+
+  if (lastBtn3 == LOW && btn3 == HIGH) {
+    stateGreen = !stateGreen;
+    digitalWrite(LED_GREEN, stateGreen);
+    Serial.print("ACK:LED:3:");
+    Serial.println(stateGreen ? "1" : "0");
+    showMessage(stateGreen ? "Button GREEN ON" : "Button GREEN OFF");
+    updateLed(3, stateGreen); 
+  }
+  lastBtn3 = btn3;
+
+  // ----------- SENSOR -----------
+  int sensorState = digitalRead(SENSOR);
+
+  if (sensorState == HIGH && lastSensorState == LOW) {
+    counter++;
+    showCounter();
+    digitalWrite(LED4, HIGH);
+    Serial.println("SENSOR:1");
+    delay(200);
+    digitalWrite(LED4, LOW);
+    Serial.println("SENSOR:0");
+    sendCounter();
+  }
+
+  lastSensorState = sensorState;
+
+  // ----------- LECTURA COMANDOS SERIAL -----------
+ if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd.startsWith("LED:")) {
+      int ledNum = cmd.substring(4, 5).toInt();
+      int value = cmd.substring(6).toInt();
+
+      if (ledNum == 1) {
+        digitalWrite(LED_BLUE, value);
+        stateBlue = value;
+        Serial.print("ACK:LED:1:");
+        Serial.println(value);
+        updateLed(1, value);   
+
+      } else if (ledNum == 2) {
+        digitalWrite(LED_RED, value);
+        stateRed = value;
+        Serial.print("ACK:LED:2:");
+        Serial.println(value);
+        updateLed(2, value);   
+
+      } else if (ledNum == 3) {
+        digitalWrite(LED_GREEN, value);
+        stateGreen = value;
+        Serial.print("ACK:LED:3:");
+        Serial.println(value);
+        updateLed(3, value);   
+      }
+    }
+    else if (cmd == "RESET") {
+      counter = 0;
+      showMessage("Counter Reset");
+      Serial.println("ACK:RESET");
+      sendCounter();  
+    }
+  }
+
+  static unsigned long lastGet = 0;
+  if (millis() - lastGet > 10000) {
+    getDatos(); 
+    lastGet = millis();
+  }
+
+  delay(50);
+}
+
+
+const char* ssid = "test1"; //Nombre de la red que te vas a conectar
+const char* password = "123456"; 
+const char* baseUrl = "http://192.168.1.5:5000";   //La ip y el puerto de la pc
+
+void connectWiFi() {
+  WiFi.begin(ssid, password);
+  Serial.print("Conectando a WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(250);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi conectado");
+  Serial.print("IP ESP32: ");
+  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.status());
+}
+
+void sendCounter() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    StaticJsonDocument<200> jsonDoc;
+    jsonDoc["contador"] = counter;
+    String jsonString;
+    serializeJson(jsonDoc, jsonString);
+
+    http.begin(String(baseUrl) + "/sendData");
+    http.addHeader("Content-Type", "application/json");
+    int code = http.POST(jsonString);
+
+    Serial.println(code > 0 ? "Contador enviado" : "Error al enviar contador");
+    http.end();
+  }
+}
+
+void updateLed(int ledNum, bool estado) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    StaticJsonDocument<200> jsonDoc;
+    jsonDoc["led"] = ledNum;
+    jsonDoc["estado"] = estado ? 1 : 0;
+    String jsonString;
+    serializeJson(jsonDoc, jsonString);
+
+    http.begin(String(baseUrl) + "/updateLed/" + String(ledNum));
+    http.addHeader("Content-Type", "application/json");
+    int code = http.PUT(jsonString);
+
+    Serial.println(code > 0 ? "LED actualizado" : "Error al actualizar LED");
+    http.end();
+  }
+}
+
+void getDatos() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(String(baseUrl) + "/getDatos");
+    int code = http.GET();
+
+    if (code > 0) {
+      String payload = http.getString();
+      Serial.println("Respuesta API: " + payload);
+
+      StaticJsonDocument<200> doc;
+      if (deserializeJson(doc, payload) == DeserializationError::Ok) {
+        stateBlue = doc["led1"];
+        stateRed = doc["led2"];
+        stateGreen = doc["led3"];
+
+        digitalWrite(LED_BLUE, stateBlue);
+        digitalWrite(LED_RED, stateRed);
+        digitalWrite(LED_GREEN, stateGreen);
+      }
+    }
+    http.end();
+  }
+}

@@ -42,7 +42,8 @@ def on_line(parent, line: str):
                 parent.led_states[idx] = True
                 parent.history.append((datetime.now().isoformat(), idx+1, "BTN"))
                 if parent.db_user_id:
-                    db_save_event(parent.db_user_id, "LED_ON", f"LED{idx+1}", "CIRCUITO", "1")
+                    # store as numeric for clearer normalization
+                    db_save_event(parent.db_user_id, "LED_ON", f"LED{idx+1}", "CIRCUITO", 1)
                 parent.update_ui()
             elif idx == 3:
                 handle_sensor_activation(parent, True)
@@ -61,8 +62,8 @@ def on_line(parent, line: str):
                     parent.led_states[idx] = state
                     parent.history.append((datetime.now().isoformat(), idx+1, f"ACK:{val}"))
                     if parent.db_user_id and idx < 3:
-                        tipo = "LED_ON" if state else "LED_OFF"
-                        db_save_event(parent.db_user_id, tipo, f"LED{idx+1}", "CIRCUITO", val)
+                                tipo = "LED_ON" if state else "LED_OFF"
+                                db_save_event(parent.db_user_id, tipo, f"LED{idx+1}", "CIRCUITO", 1 if state else 0)
                     if idx == 3:
                         handle_sensor_activation(parent, state)
                     parent.update_ui()
@@ -92,21 +93,23 @@ def handle_sensor_activation(parent, is_on: bool):
     prev = parent.sensor_last_state
     parent.sensor_last_state = is_on
     parent.led_states[3] = is_on
-
     if (not prev) and is_on:
+        # primera activación (de 0 a 1)
         if getattr(parent, 'serial_thread', None) and getattr(parent.serial_thread, 'isRunning', lambda: False)():
             parent.total_counter += 1
             parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON"))
             if parent.db_user_id:
+                # guardar contador exacto como 'contador=N'
                 db_save_event(parent.db_user_id, "SENSOR_BLOQUEADO", "SENSOR_IR", "CIRCUITO", f"contador={parent.total_counter}")
         else:
             parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON"))
     else:
+        # transiciones posteriores o OFF
         parent.history.append((datetime.now().isoformat(), 4, "SENSOR_ON" if is_on else "SENSOR_OFF"))
         if parent.db_user_id:
             if getattr(parent, 'serial_thread', None) and getattr(parent.serial_thread, 'isRunning', lambda: False)():
                 tipo = "SENSOR_BLOQUEADO" if is_on else "SENSOR_LIBRE"
-                db_save_event(parent.db_user_id, tipo, "SENSOR_IR", "CIRCUITO", "1" if is_on else "0")
+                db_save_event(parent.db_user_id, tipo, "SENSOR_IR", "CIRCUITO", 1 if is_on else 0)
 
     parent.update_ui()
 

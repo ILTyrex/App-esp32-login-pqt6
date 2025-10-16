@@ -107,6 +107,57 @@ def get_or_create_user_id(username: str):
             pass
 
 
+def _normalize_val(valor, tipo_evento=None, detalle=None, origen=None):
+    """Normaliza el campo 'valor' para eventos: mapea 1/0, true/false, 'on'/'off' a 'ON'/'OFF'.
+    Si el valor contiene 'contador=' se deja tal cual. Devuelve siempre string de max 50 caracteres.
+    """
+    try:
+        if valor is None:
+            return ""
+        # bytes -> str
+        if isinstance(valor, (bytes, bytearray)):
+            try:
+                valor = valor.decode('utf-8', errors='ignore')
+            except Exception:
+                valor = str(valor)
+
+        # ints
+        if isinstance(valor, (int,)):
+            if valor == 1:
+                return "ON"
+            if valor == 0:
+                return "OFF"
+            return str(valor)[:50]
+
+        s = str(valor).strip()
+        if not s:
+            return ""
+
+        # preserve contador=NN strings
+        if s.lower().startswith('contador='):
+            return s[:50]
+
+        # common true/false/1/0/on/off mappings
+        low = s.lower()
+        if low in ('1', 'true', 'on', 'activo', 'encendido'):
+            return 'ON'
+        if low in ('0', 'false', 'off', 'inactivo', 'apagado'):
+            return 'OFF'
+
+        # sometimes the value may be like 'LED1' or numeric with extra text; try to extract a trailing 1/0
+        m = re.search(r'\b(1|0)\b', s)
+        if m:
+            return 'ON' if m.group(1) == '1' else 'OFF'
+
+        # fallback: truncate to 50 chars
+        return s[:50]
+    except Exception:
+        try:
+            return str(valor)[:50]
+        except Exception:
+            return ''
+
+
 def db_save_event(user_id, tipo_evento, detalle, origen, valor):
     if user_id is None:
         return False
@@ -116,8 +167,14 @@ def db_save_event(user_id, tipo_evento, detalle, origen, valor):
     cursor = None
     try:
         cursor = conn.cursor()
+        # normalize valor for consistency (store ON/OFF where applicable)
+        try:
+            valor_norm = _normalize_val(valor, tipo_evento=tipo_evento, detalle=detalle, origen=origen)
+        except Exception:
+            valor_norm = str(valor) if valor is not None else ''
+
         sql = "INSERT INTO eventos (id_usuario, tipo_evento, detalle, origen, valor) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(sql, (user_id, tipo_evento, detalle, origen, valor))
+        cursor.execute(sql, (user_id, tipo_evento, detalle, origen, valor_norm))
         try:
             conn.commit()
         except Exception:
