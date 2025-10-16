@@ -31,6 +31,9 @@ bool lastBtn3 = LOW;
 int counter = 0;
 int lastSensorState;
 
+// Nuevo: modo de conexión (true = LAN, false = Serial)
+bool useLAN = false;
+
 void showCounter() {
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -76,7 +79,8 @@ void setup() {
 
   lastSensorState = digitalRead(SENSOR);
 
-  connectWiFi();
+  // Intentar conectar a WiFi; si falla, quedamos en modo Serial
+  useLAN = connectWiFi();
 
 }
 
@@ -172,8 +176,8 @@ void loop() {
   }
 
   static unsigned long lastGet = 0;
-  if (millis() - lastGet > 10000) {
-    getDatos(); 
+  if (useLAN && (millis() - lastGet > 10000)) {
+    getDatos();
     lastGet = millis();
   }
 
@@ -185,20 +189,36 @@ const char* ssid = "test1"; //Nombre de la red que te vas a conectar
 const char* password = "123456"; 
 const char* baseUrl = "http://192.168.1.5:5000";   //La ip y el puerto de la pc
 
-void connectWiFi() {
+// Cambiado: ahora devuelve true si se conectó, false si no (timeout)
+bool connectWiFi() {
   WiFi.begin(ssid, password);
   Serial.print("Conectando a WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
+  unsigned long start = millis();
+  const unsigned long timeout = 8000; // 8s para decidir modo
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout) {
     delay(250);
     Serial.print(".");
   }
-  Serial.println("\nWiFi conectado");
-  Serial.print("IP ESP32: ");
-  Serial.println(WiFi.localIP());
-  Serial.println(WiFi.status());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi conectado");
+    Serial.print("IP ESP32: ");
+    Serial.println(WiFi.localIP());
+    Serial.println(WiFi.status());
+    return true;
+  } else {
+    Serial.println("\nWiFi NO conectado, usando modo SERIAL");
+    return false;
+  }
 }
 
 void sendCounter() {
+  if (!useLAN) {
+    // En modo Serial no hacemos petición HTTP; solo confirmamos por Serial
+    Serial.print("LOCAL_COUNTER:");
+    Serial.println(counter);
+    return;
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     StaticJsonDocument<200> jsonDoc;
@@ -216,6 +236,15 @@ void sendCounter() {
 }
 
 void updateLed(int ledNum, bool estado) {
+  // Si no estamos en LAN, no intentamos HTTP; respondemos por Serial
+  if (!useLAN) {
+    Serial.print("ACK:LED:");
+    Serial.print(ledNum);
+    Serial.print(":");
+    Serial.println(estado ? "1" : "0");
+    return;
+  }
+
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     StaticJsonDocument<200> jsonDoc;
@@ -234,6 +263,8 @@ void updateLed(int ledNum, bool estado) {
 }
 
 void getDatos() {
+  if (!useLAN) return;
+
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(String(baseUrl) + "/getDatos");
