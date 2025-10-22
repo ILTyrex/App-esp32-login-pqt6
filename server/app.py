@@ -1,41 +1,43 @@
-from flask import Flask, request, jsonify
+from flask import Flask, send_from_directory
+from .config import Config
+from .extensions import db, migrate, jwt
+from .routes.auth import bp as auth_bp
+from .routes.esp32 import bp as esp32_bp
+from .routes.events import bp as events_bp
+from .routes.actuador import bp as actuador_bp
+from .routes.export import bp as export_bp
 from flask_cors import CORS
+import os
 
-app = Flask(__name__)
-CORS(app)
+def create_app():
+    app = Flask(__name__, static_folder="static_frontend", static_url_path="/")
+    app.config.from_object(Config)
 
-# Estado en memoria (simple)
-leds = {1: 0, 2: 0, 3: 0}
-counter = 0
-
-@app.route('/sendData', methods=['POST'])
-def send_data():
-    global counter
-    data = request.get_json() or {}
-    counter = data.get('contador', counter)
-    print("Received counter:", counter)
-    return jsonify({'status': 'ok'}), 200
-
-@app.route('/getDatos', methods=['GET'])
-def get_datos():
-    return jsonify({
-        'led1': leds[1],
-        'led2': leds[2],
-        'led3': leds[3],
-        'contador': counter
-    }), 200
-
-@app.route('/updateLed/<int:id>', methods=['PUT'])
-def update_led(id):
-    data = request.get_json() or {}
-    estado = int(data.get('estado', 0))
-    if id in leds:
-        leds[id] = 1 if estado else 0
-        print(f"Led {id} set to {leds[id]}")
-        return jsonify({'status': 'ok'}), 200
+    cors_origins = app.config.get("CORS_ORIGINS", "*")
+    if isinstance(cors_origins, str) and cors_origins != "*":
+        origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
     else:
-        return jsonify({'error': 'invalid led id'}), 400
+        origins = "*" if cors_origins == "*" else cors_origins
+    CORS(app, origins=origins)
 
-if __name__ == '__main__':
-    # Ejecutar en la LAN
-    app.run(host='0.0.0.0', port=5000)
+    db.init_app(app)
+    migrate.init_app(app, db)
+    jwt.init_app(app)
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(esp32_bp)
+    app.register_blueprint(events_bp)
+    app.register_blueprint(actuador_bp)
+    app.register_blueprint(export_bp)
+
+    @app.route("/", defaults={"path": ""})
+    @app.route("/<path:path>")
+    def serve_frontend(path):
+        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+            return send_from_directory(app.static_folder, path)
+        return send_from_directory(app.static_folder, "index.html")
+
+    return app
+
+if __name__ == "__main__":
+    create_app().run(host="0.0.0.0", port=5000, debug=True)
