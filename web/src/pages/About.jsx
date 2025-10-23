@@ -9,9 +9,9 @@ export default function About(){
         <div className="creators">
           <p><strong>Creadores:</strong></p>
           <ul>
-            <li>Stiven Amorocho — realizó la app y el frontend</li>
-            <li>Jose Angarita — realizó armamiento de circuito y base de datos</li>
-            <li>Osvaldo Ospino — realizó armamiento de circuito y backend</li>
+            <li>Stiven Amorocho — Desarrollo de aplicaciones: app de escritorio y app web (frontend).</li>
+            <li>Jose Angarita — Desarrollo e integración: app de escritorio, diseño y programación del circuito físico, y base de datos.</li>
+            <li>Osvaldo Ospino — Hardware y backend: montaje y programación del circuito físico, y desarrollo del backend para la app web.</li>
           </ul>
         </div>
         <p><strong>Contacto:</strong> <a href="mailto:amorochocordoba@gmail.com">amorochocordoba@gmail.com</a></p>
