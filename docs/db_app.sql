@@ -47,7 +47,7 @@ CREATE TABLE `eventos` (
   `id_usuario` int(11) NOT NULL,
   `tipo_evento` enum('LED_ON','LED_OFF','SENSOR_BLOQUEADO','SENSOR_LIBRE','RESET_CONTADOR') NOT NULL,
   `detalle` enum('LED1','LED2','LED3','SENSOR_IR','CONTADOR') NOT NULL,
-  `origen` enum('APP','CIRCUITO') NOT NULL,
+  `origen` enum('APP','WEB','CIRCUITO') NOT NULL,
   `origen_ip` varchar(45) DEFAULT NULL,
   `valor` varchar(50) NOT NULL,
   `fecha_hora` timestamp NOT NULL DEFAULT current_timestamp(),

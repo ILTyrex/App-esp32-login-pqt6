@@ -22,7 +22,8 @@ def receive_data():
         detalle=detalle,
         origen=origen,
         valor=valor,
-        fecha_hora=datetime.utcnow()
+        fecha_hora=datetime.utcnow(),
+        origen_ip=request.remote_addr
     )
 
     db.session.add(evento)
@@ -42,7 +43,8 @@ def secure_data():
         detalle=data.get("detalle", "LED2"),
         origen=data.get("origen", "APP"),
         valor=data.get("valor", "OFF"),
-        fecha_hora=datetime.utcnow()
+        fecha_hora=datetime.utcnow(),
+        origen_ip=request.remote_addr
     )
 
     db.session.add(evento)

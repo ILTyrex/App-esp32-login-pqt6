@@ -17,10 +17,10 @@ def create_event():
     
     tipo_evento = data.get('tipo_evento')
     detalle = data.get('detalle')
-    origen = data.get('origen')
+    origen = data.get('origen', 'APP')
     valor = data.get('valor')
-    if not all([tipo_evento, detalle, origen, valor]):
-        return jsonify({"error":"tipo_evento, detalle, origen y valor son requeridos"}), 400
+    if not all([tipo_evento, detalle, valor]):
+        return jsonify({"error":"tipo_evento, detalle y valor son requeridos"}), 400
     ip = request.remote_addr
     ev = Evento(id_usuario=id_usuario, tipo_evento=tipo_evento, detalle=detalle, origen=origen, valor=str(valor), origen_ip=ip)
     db.session.add(ev)

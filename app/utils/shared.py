@@ -14,6 +14,7 @@ import base64
 import binascii
 from io import BytesIO, StringIO
 import logging
+import socket
 
 logger = logging.getLogger(__name__)
 
@@ -173,8 +174,31 @@ def db_save_event(user_id, tipo_evento, detalle, origen, valor):
         except Exception:
             valor_norm = str(valor) if valor is not None else ''
 
-        sql = "INSERT INTO eventos (id_usuario, tipo_evento, detalle, origen, valor) VALUES (%s, %s, %s, %s, %s)"
-        cursor.execute(sql, (user_id, tipo_evento, detalle, origen, valor_norm))
+        # attempt to detect the local IP address to store in origen_ip
+        ip_addr = None
+        try:
+            # create a UDP socket and connect to a public IP to discover the outbound address
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0.5)
+            try:
+                s.connect(("8.8.8.8", 80))
+                ip_addr = s.getsockname()[0]
+            except Exception:
+                # fallback to hostname resolution
+                try:
+                    ip_addr = socket.gethostbyname(socket.gethostname())
+                except Exception:
+                    ip_addr = None
+            finally:
+                try:
+                    s.close()
+                except Exception:
+                    pass
+        except Exception:
+            ip_addr = None
+
+        sql = "INSERT INTO eventos (id_usuario, tipo_evento, detalle, origen, valor, origen_ip) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(sql, (user_id, tipo_evento, detalle, origen, valor_norm, ip_addr))
         try:
             conn.commit()
         except Exception:

@@ -16,10 +16,32 @@ def create_command():
     device_id = data.get('device_id')
     if not all([tipo, detalle, accion]):
         return jsonify({"error":"tipo, detalle y accion son requeridos"}), 400
-    cmd = Command(id_usuario=uid, device_id=device_id, tipo=tipo, detalle=detalle, accion=accion)
+    # ensure uid is integer for FK
+    try:
+        uid_int = int(uid)
+    except Exception:
+        uid_int = uid
+
+    cmd = Command(id_usuario=uid_int, device_id=device_id, tipo=tipo, detalle=detalle, accion=accion)
     db.session.add(cmd)
-    
-    ev = Evento(id_usuario=uid, tipo_evento=f"{detalle}_{accion}", detalle=detalle, origen="APP", valor=accion)
+    # determine tipo_evento using known enum values so the column is not left NULL
+    tipo_evento = None
+    if tipo == 'LED':
+        tipo_evento = 'LED_ON' if str(accion).upper() == 'ON' else 'LED_OFF'
+    elif tipo == 'MOTOR':
+        # motors don't have a specific Evento enum; fallback to LED-like mapping if applicable
+        tipo_evento = 'LED_ON' if str(accion).upper() == 'ON' else 'LED_OFF'
+    elif detalle == 'CONTADOR' and str(accion).upper() in ('RESET', '0'):
+        tipo_evento = 'RESET_CONTADOR'
+    else:
+        # best-effort fallback to one of the allowed enums
+        if str(accion).upper() in ('ON','OFF'):
+            tipo_evento = 'LED_ON' if str(accion).upper() == 'ON' else 'LED_OFF'
+        else:
+            tipo_evento = 'RESET_CONTADOR' if 'RESET' in str(accion).upper() else None
+
+    origen = data.get('origen', 'APP')
+    ev = Evento(id_usuario=uid_int, tipo_evento=tipo_evento, detalle=detalle, origen=origen, valor=accion, origen_ip=request.remote_addr)
     db.session.add(ev)
     db.session.commit()
     return jsonify({"msg":"comando creado", "id_command": cmd.id_command}), 201

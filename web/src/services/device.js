@@ -47,9 +47,10 @@ export function toggleLed(index){
   leds[index] = !leds[index]
   const updated = writeState({leds})
   // send event to backend (non-blocking)
-  try{
-    api.post('/events', { tipo_evento: leds[index] ? 'LED_ON' : 'LED_OFF', detalle: `LED${index+1}`, origen: 'APP', valor: leds[index] })
-  }catch(e){
+    try{
+      // mark origin as WEB when the action comes from the web UI
+      api.post('/events', { tipo_evento: leds[index] ? 'LED_ON' : 'LED_OFF', detalle: `LED${index+1}`, origen: 'WEB', valor: leds[index] })
+    }catch(e){
     // ignore network errors for now
   }
   return updated
@@ -57,7 +58,7 @@ export function toggleLed(index){
 
 export function setFoco(value){
   const updated = writeState({foco: !!value})
-  try{ api.post('/events', { tipo_evento: value ? 'LED_ON' : 'LED_OFF', detalle: 'FOCO', origen: 'APP', valor: value }) }catch(e){}
+  try{ api.post('/events', { tipo_evento: value ? 'LED_ON' : 'LED_OFF', detalle: 'FOCO', origen: 'WEB', valor: value }) }catch(e){}
   return updated
 }
 
@@ -69,13 +70,13 @@ export function toggleSensor(){
     updates.obstacleCount = (s.obstacleCount || 0) + 1
   }
   const updated = writeState(updates)
-  try{ api.post('/events', { tipo_evento: newSensor ? 'SENSOR_BLOQUEADO' : 'SENSOR_LIBRE', detalle: 'SENSOR_IR', origen: 'APP', valor: newSensor }) }catch(e){}
+  try{ api.post('/events', { tipo_evento: newSensor ? 'SENSOR_BLOQUEADO' : 'SENSOR_LIBRE', detalle: 'SENSOR_IR', origen: 'WEB', valor: newSensor }) }catch(e){}
   return updated
 }
 
 export function resetCounter(){
   const updated = writeState({obstacleCount: 0, history: []})
-  try{ api.post('/events', { tipo_evento: 'RESET_CONTADOR', detalle: 'CONTADOR', origen: 'APP', valor: '0' }) }catch(e){}
+  try{ api.post('/events', { tipo_evento: 'RESET_CONTADOR', detalle: 'CONTADOR', origen: 'WEB', valor: '0' }) }catch(e){}
   return updated
 }
 
@@ -89,7 +90,9 @@ export function reset(){
 export async function createCommand(payload){
   // payload: { tipo, detalle, accion, device_id }
   try{
-    const res = await api.post('/api/commands', payload)
+    // attach origin metadata when invoked from the web UI
+    const body = { ...payload, origen: payload.origen || 'WEB' }
+    const res = await api.post('/api/commands', body)
     return res.data
   }catch(e){
     throw e
