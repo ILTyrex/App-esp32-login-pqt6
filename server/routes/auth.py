@@ -30,7 +30,27 @@ def login():
     if not username or not password:
         return jsonify({"error":"usuario y contrasena son requeridos"}), 400
     user = Usuario.query.filter_by(usuario=username).first()
-    if not user or not check_password_hash(user.contrasena, password):
+    if not user:
+        return jsonify({"error":"Credenciales inválidas"}), 401
+
+    # validate password; handle legacy plain-text passwords
+    valid = False
+    try:
+        valid = check_password_hash(user.contrasena, password)
+    except ValueError:
+        # stored password not a valid hash (maybe plain text) -> fallback
+        if user.contrasena == password:
+            valid = True
+            # try to migrate to a secure hash
+            try:
+                user.contrasena = generate_password_hash(password)
+                db.session.add(user)
+                db.session.commit()
+            except Exception:
+                # don't block login if migration fails
+                pass
+
+    if not valid:
         return jsonify({"error":"Credenciales inválidas"}), 401
     expires = datetime.timedelta(hours=8)
     access_token = create_access_token(identity=str(user.id_usuario), expires_delta=expires)

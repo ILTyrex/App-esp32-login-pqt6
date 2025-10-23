@@ -15,7 +15,7 @@ export default function MainLayout(){
     <div className="app-shell">
       <aside className="sidebar">
         <h3>Dashboard</h3>
-        <div style={{marginBottom:20}}>Usuario: {user?.username || '---'}</div>
+  <div style={{marginBottom:20}}>Usuario: {user?.username || user?.usuario || '---'}</div>
         <NavLink className="nav-link" to="/">Inicio</NavLink>
         <NavLink className="nav-link" to="/control">Control</NavLink>
         <NavLink className="nav-link" to="/reports">Reportes</NavLink>

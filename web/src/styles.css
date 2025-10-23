@@ -15,6 +15,37 @@ body{font-family:Inter,Segoe UI,Roboto,Arial; background:var(--bg); margin:0}
 .login-box{max-width:420px;margin:80px auto;background:#fff;padding:24px;border-radius:8px}
 input,button{font-size:14px;padding:8px;margin-top:8px;width:100%}
 button{background:var(--primary);color:#fff;border:0;border-radius:6px}
+
+/* Login/Register enhancements */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:80vh}
+.login-box{max-width:520px;padding:24px}
+.card-header .muted{color:var(--muted);font-size:13px}
+.form-grid{display:grid;gap:12px}
+.form-row label{font-weight:600;color:#111}
+.btn-ghost{background:transparent;color:var(--primary);border:1px solid rgba(30,144,255,0.12);padding:6px 10px;border-radius:6px;cursor:pointer}
+.card-footer{margin-top:12px;text-align:center}
+
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:6px;border-radius:6px;width:auto}
+.icon-btn svg{display:block}
+
+/* input with icon inside */
+.input-with-icon{position:relative}
+.input-with-icon{display:block;max-width:100%;overflow:hidden}
+.input-with-icon__input{width:100%;padding-right:44px;box-sizing:border-box}
+
+/* normalize form inputs so username and password look identical */
+.form-row input,
+.input-with-icon__input,
+.form-row textarea,
+input[type="text"], input[type="password"], input[type="email"]{
+  width:100%;
+  box-sizing:border-box;
+  padding:10px 12px;
+  height:44px;
+  border-radius:6px;
+}
+.icon-btn--inside{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:transparent;border:0;padding:6px;width:36px;height:36px}
+.icon-btn--inside svg{opacity:0.9}
 /* Control specific */
 .control-grid{display:flex;gap:16px;flex-wrap:wrap}
 .device-card{background:#fff;border-radius:10px;padding:14px;min-width:180px;box-shadow:0 6px 18px rgba(15,23,36,0.06);border:1px solid rgba(2,6,23,0.03)}

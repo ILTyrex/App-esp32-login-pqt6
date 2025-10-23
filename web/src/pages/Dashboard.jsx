@@ -1,34 +1,76 @@
 import React, { useEffect, useState } from 'react'
 import { Chart, registerables } from 'chart.js'
 import { Line, Bar, Doughnut } from 'react-chartjs-2'
-import { readState } from '../services/device'
+import api from '../services/api'
 
 Chart.register(...registerables)
 
 export default function Dashboard(){
-  const [state, setState] = useState(readState())
+  const [events, setEvents] = useState([])
 
   useEffect(()=>{
-    const id = setInterval(()=> setState(readState()), 800)
+    // poll events periodically
+    fetchEvents()
+    const id = setInterval(()=> fetchEvents(), 1000)
     return ()=>clearInterval(id)
   },[])
 
-  const indicators = [
-    {label:'Actuadores ON', value: state.leds.filter(Boolean).length},
-    {label:'Foco', value: state.foco ? 'ON' : 'OFF'},
-    {label:'Obstáculos (cont.)', value: state.obstacleCount},
-    {label:'Última actualización', value: new Date(state.lastUpdate).toLocaleString()}
-  ]
-
-  const labels = state.history.map((h,i)=> new Date(h.ts).toLocaleTimeString())
-  const lineData = {
-    labels: labels.length? labels : ['-'],
-    datasets:[{label:'Obstáculos', data: state.history.map(h=>h.obstacleCount), borderColor:'#1e90ff', tension:0.3}]
+  async function fetchEvents(){
+    try{
+      // request a larger history
+      const res = await api.get('/events', { params: { limit: 200 } })
+      // server returns events in desc order; sort asc by fecha_hora
+      const ev = Array.isArray(res.data) ? res.data.slice().sort((a,b)=> new Date(a.fecha_hora) - new Date(b.fecha_hora)) : []
+      setEvents(ev)
+    }catch(e){
+      setEvents([])
+    }
   }
 
-  const barData = {labels: ['Leds on'], datasets:[{label:'Actuadores', data:[state.leds.filter(Boolean).length], backgroundColor:'#3b82f6'}]}
+  // derive indicators from events
+  const lastByDetalle = {}
+  events.forEach(ev => { lastByDetalle[ev.detalle] = ev })
 
-  const doughnutData = {labels:['Foco ON','Foco OFF'], datasets:[{data: state.foco ? [1,0] : [0,1], backgroundColor:['#10b981','#ef4444']}]}
+  const leds = [1,2,3].map(i=>{
+    const ev = lastByDetalle[`LED${i}`]
+    if(!ev) return false
+    // consider LED_ON / LED_OFF or valor 'ON'/'OFF'
+    return ev.tipo_evento === 'LED_ON' || String(ev.valor).toUpperCase() === 'ON'
+  })
+
+  const ledsOnCount = leds.filter(Boolean).length
+  const sensorEv = lastByDetalle['SENSOR_IR']
+  const sensorOn = sensorEv ? (sensorEv.tipo_evento === 'SENSOR_BLOQUEADO' || String(sensorEv.valor).toLowerCase()==='true') : false
+
+  // compute cumulative obstacle count from events
+  let obstacleCount = 0
+  const historyPoints = [] // [{ts, obstacleCount}]
+  events.forEach(ev=>{
+    if(ev.tipo_evento === 'SENSOR_BLOQUEADO'){
+      obstacleCount += 1
+    }
+    if(ev.tipo_evento === 'RESET_CONTADOR'){
+      obstacleCount = 0
+    }
+    historyPoints.push({ ts: ev.fecha_hora, obstacleCount })
+  })
+
+  const indicators = [
+    {label:'LEDs encendidos', value: ledsOnCount},
+    {label:'Sensor', value: sensorOn ? 'ON' : 'OFF'},
+    {label:'Obstáculos (cont.)', value: obstacleCount},
+    {label:'Última actualización', value: events.length ? new Date(events[events.length-1].fecha_hora).toLocaleString() : '---'}
+  ]
+
+  const history = historyPoints.length ? historyPoints : [{ts: new Date().toISOString(), obstacleCount: 0}]
+  const labels = history.map(h=> new Date(h.ts).toLocaleTimeString())
+  const lineData = { labels, datasets:[{label:'Obstáculos', data: history.map(h=>h.obstacleCount || 0), borderColor:'#1e90ff', tension:0.3}] }
+
+  const barData = { labels: ['LEDs encendidos'], datasets:[{label:'LEDs', data:[ledsOnCount], backgroundColor:'#3b82f6'}] }
+  const doughnutData = { labels:['Sensor ON','Sensor OFF'], datasets:[{data: sensorOn ? [1,0] : [0,1], backgroundColor:['#10b981','#ef4444']}] }
+
+  const miniLine = lineData
+  const miniBar = barData
 
   return (
     <div>
@@ -42,11 +84,11 @@ export default function Dashboard(){
       </div>
 
       <div className="grid" style={{marginTop:16}}>
-        <div className="card"><h4>Linea (histórico obstáculos)</h4><Line data={lineData} /></div>
-        <div className="card"><h4>Barras (actuadores)</h4><Bar data={barData} /></div>
-        <div className="card"><h4>Dona (foco)</h4><Doughnut data={doughnutData} /></div>
-        <div className="card"><h4>Mini Linea</h4><Line data={lineData} /></div>
-        <div className="card"><h4>Mini Barra</h4><Bar data={barData} /></div>
+        <div className="card"><h4>Línea (histórico obstáculos)</h4><Line data={lineData} /></div>
+        <div className="card"><h4>Barras (LEDs)</h4><Bar data={barData} /></div>
+        <div className="card"><h4>Dona (sensor)</h4><Doughnut data={doughnutData} /></div>
+        <div className="card"><h4>Mini Línea</h4><Line data={miniLine} /></div>
+        <div className="card"><h4>Mini Barra</h4><Bar data={miniBar} /></div>
       </div>
     </div>
   )

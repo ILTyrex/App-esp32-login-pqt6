@@ -1,34 +1,74 @@
-// Simulación de auth: en el futuro conectar con backend
+import api, { setAuthToken } from './api'
+
 const TOKEN_KEY = 'app_token'
+const USER_KEY = 'app_user'
 
-export function loginMock(username, password) {
-  // acepta cualquier credenciales para demo y guarda un token simulado
-  const token = btoa(JSON.stringify({ username, exp: Date.now() + 1000 * 60 * 60 }))
-  localStorage.setItem(TOKEN_KEY, token)
-  return Promise.resolve({ token })
-}
-
-export function logout() {
-  localStorage.removeItem(TOKEN_KEY)
-}
-
-export function isAuthenticated() {
-  const t = localStorage.getItem(TOKEN_KEY)
-  if (!t) return false
-  try {
-    const payload = JSON.parse(atob(t))
-    return payload.exp > Date.now()
-  } catch (e) {
-    return false
+async function login(username, password){
+  try{
+    const res = await api.post('/auth/login', { usuario: username, contrasena: password })
+    const token = res.data.access_token
+    const user = res.data.usuario
+    if(token){
+      localStorage.setItem(TOKEN_KEY, token)
+      setAuthToken(token)
+    }
+    if(user){
+      localStorage.setItem(USER_KEY, JSON.stringify(user))
+    }
+    return { token, user }
+  }catch(e){
+    // rethrow for UI to handle
+    throw e
   }
 }
 
-export function getUser() {
+async function register(username, password){
+  try{
+    const res = await api.post('/auth/register', { usuario: username, contrasena: password })
+    return res.data
+  }catch(e){
+    throw e
+  }
+}
+
+function logout(){
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+  setAuthToken(null)
+}
+
+function isAuthenticated(){
   const t = localStorage.getItem(TOKEN_KEY)
-  if (!t) return null
-  try {
-    return JSON.parse(atob(t))
-  } catch (e) {
+  return !!t
+}
+
+function getUser(){
+  const raw = localStorage.getItem(USER_KEY)
+  if(!raw) return null
+  try{
+    const u = JSON.parse(raw)
+    // normalize backend shape { usuario: 'name' } to { username }
+    if(u){
+      const normalized = { ...u }
+      if(u.usuario && !u.username){
+        normalized.username = u.usuario
+      }
+      return normalized
+    }
+    return null
+  }catch(e){
     return null
   }
 }
+
+async function me(){
+  try{
+    const res = await api.get('/auth/me')
+    return res.data
+  }catch(e){
+    throw e
+  }
+}
+
+export { login, register, logout, isAuthenticated, getUser, me }
+
