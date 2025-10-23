@@ -61,3 +61,108 @@ input[type="text"], input[type="password"], input[type="email"]{
 
 .card-header{display:flex;justify-content:space-between;align-items:center;padding:8px 0 16px 0}
 .card-header .btn-danger{padding:10px 14px}
+
+/* AUTH (Login / Register) two-panel layout */
+.auth-page{display:flex;align-items:center;justify-content:center;min-height:90vh;padding:20px}
+.auth-card{display:flex;width:100%;max-width:980px;background:linear-gradient(0deg,#fff,#fff);border-radius:18px;box-shadow:0 20px 40px rgba(2,6,23,0.12);overflow:hidden}
+.panel{flex:1;min-width:280px;display:flex;align-items:stretch}
+.panel--side{background:linear-gradient(135deg,#2fb5ad 0%,#4aa0d6 100%);color:#fff;position:relative}
+.panel--side--left{order:0}
+.panel--form{background:#fff;order:1}
+.panel-content{padding:48px;display:flex;flex-direction:column;justify-content:flex-start}
+.panel-content--center{justify-content:center;align-items:center;text-align:center}
+.big{font-size:2.2rem;margin:0 0 12px 0}
+.title{font-size:1.6rem;margin:0 0 6px 0;color:#111}
+.muted{color:var(--muted)}
+
+.panel--side::after{content:'';position:absolute;right:-80px;top:0;bottom:0;width:200px;background:transparent;border-radius:200px/120px;box-shadow:inset -40px 0 0 rgba(255,255,255,0.03)}
+
+.form-grid{display:flex;flex-direction:column;gap:12px;margin-top:18px}
+.form-row input{border:0;background:#f1f3f4;border-radius:10px;padding:12px 14px;height:46px}
+.form-row .btn-primary{height:44px;border-radius:8px;background:#1693a7;color:#fff;border:0}
+.form-cta{font-weight:700}
+.btn-ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.22);padding:10px 18px;border-radius:22px}
+
+/* small adjustments */
+.panel--form .panel-content{color:#111}
+.panel--form .muted{color:#6b7280}
+
+@media (max-width:880px){
+  .auth-card{flex-direction:column;padding:12px;border-radius:12px}
+  .panel--side{order:0;padding:28px}
+  .panel--form{order:1}
+  .panel--side::after{display:none}
+}
+
+/* Toggle-based single component auth (from example) */
+.container{
+    background-color: #fff;
+    border-radius: 30px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+    width: 768px;
+    max-width: 100%;
+    min-height: 480px;
+    margin: 40px auto;
+}
+
+.container p{font-size:14px;line-height:20px;margin:20px 0}
+.container span{font-size:12px}
+.container a{color:#333;font-size:13px;text-decoration:none;margin:15px 0 10px}
+
+.container button{background-color:#2da0a8;color:#fff;font-size:12px;padding:10px 28px;border:1px solid transparent;border-radius:8px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-top:10px;cursor:pointer}
+.container button.hidden{background-color:transparent;border-color:#fff;padding:8px 22px}
+.container form{background-color:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:0 40px;height:100%}
+.container input{background-color:#eee;border:none;margin:8px 0;padding:10px 15px;font-size:13px;border-radius:8px;width:100%;outline:none}
+
+.form-container{position:absolute;top:0;height:100%;transition:all 0.6s ease-in-out}
+.sign-in{left:0;width:50%;z-index:2}
+.container.active .sign-in{transform:translateX(100%)}
+.sign-up{left:0;width:50%;opacity:0;z-index:1}
+.container.active .sign-up{transform:translateX(100%);opacity:1;z-index:5;animation:move 0.6s}
+@keyframes move{0%,49.99%{opacity:0;z-index:1}50%,100%{opacity:1;z-index:5}}
+.social-icons{margin:20px 0}
+.social-icons a{border:1px solid #ccc;border-radius:20%;display:inline-flex;justify-content:center;align-items:center;margin:0 3px;width:40px;height:40px}
+
+.toggle-container{position:absolute;top:0;left:50%;width:50%;height:100%;overflow:hidden;transition:all 0.6s ease-in-out;border-radius:150px 0 0 100px;z-index:1000}
+.container.active .toggle-container{transform:translateX(-100%);border-radius:0 150px 100px 0}
+.toggle{background:linear-gradient(to right,#5c6bc0,#2da0a8);color:#fff;position:relative;left:-100%;height:100%;width:200%;transform:translateX(0);transition:all 0.6s ease-in-out}
+.container.active .toggle{transform:translateX(50%)}
+.toggle-panel{position:absolute;width:50%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:0 30px;text-align:center;top:0;transform:translateX(0);transition:all 0.6s ease-in-out}
+.toggle-left{transform:translateX(-200%)}
+.container.active .toggle-left{transform:translateX(0)}
+.toggle-right{right:0;transform:translateX(0)}
+.container.active .toggle-right{transform:translateX(200%)}
+
+/* Make the hidden toggle buttons compact and not full-width */
+.toggle-panel .hidden{
+  display:inline-block;
+  width:auto;
+  padding:8px 18px;
+  max-width:220px;
+  box-sizing:border-box;
+}
+
+/* Shift right-panel paragraph slightly to the right so it's fully visible */
+.toggle-right p{
+  text-align:left;
+  padding-left:36px;
+  padding-right:20px;
+}
+
+/* Shift left-panel content slightly to the left so it's fully visible */
+.toggle-left h1,
+.toggle-left p{
+  text-align:left;
+  padding-left:20px;
+  padding-right:36px;
+}
+
+@media (max-width:640px){
+  .container{width:92%;min-height:520px}
+  .toggle-container{display:none}
+  .sign-in,.sign-up{width:100%;position:relative}
+  .container.active .sign-in{transform:none}
+  .container.active .sign-up{transform:none;opacity:1}
+}
