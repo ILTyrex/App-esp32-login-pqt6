@@ -3,6 +3,7 @@ from .config import Config
 from .extensions import db, migrate, jwt
 from .routes.auth import bp as auth_bp
 from .routes.esp32 import bp as esp32_bp
+from .routes.legacy_esp32 import bp as legacy_esp32_bp
 from .routes.events import bp as events_bp
 from .routes.actuador import bp as actuador_bp
 from .routes.export import bp as export_bp
@@ -26,6 +27,7 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(esp32_bp)
+    app.register_blueprint(legacy_esp32_bp)
     app.register_blueprint(events_bp)
     app.register_blueprint(actuador_bp)
     app.register_blueprint(export_bp)

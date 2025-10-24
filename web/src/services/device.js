@@ -50,6 +50,10 @@ export function toggleLed(index){
     try{
       // mark origin as WEB when the action comes from the web UI
       api.post('/events', { tipo_evento: leds[index] ? 'LED_ON' : 'LED_OFF', detalle: `LED${index+1}`, origen: 'WEB', valor: leds[index] })
+      // also attempt to notify device via backend legacy endpoint so physical device can update
+      try{
+        api.put(`/updateLed/${index+1}`, { led: index+1, estado: leds[index] ? 1 : 0 })
+      }catch(e){}
     }catch(e){
     // ignore network errors for now
   }

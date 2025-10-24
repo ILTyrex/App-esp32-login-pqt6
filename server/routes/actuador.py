@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from server.extensions import db
 from server.models import Command, Evento
 from flask_jwt_extended import jwt_required, get_jwt_identity
+import requests
+import logging
 
 bp = Blueprint('commands', __name__, url_prefix='/api/commands')
 
@@ -44,6 +46,30 @@ def create_command():
     ev = Evento(id_usuario=uid_int, tipo_evento=tipo_evento, detalle=detalle, origen=origen, valor=accion, origen_ip=request.remote_addr)
     db.session.add(ev)
     db.session.commit()
+
+    # attempt to deliver command to device directly if device_id looks like a reachable host
+    # This is best-effort: network errors won't fail the API call
+    if device_id:
+        try:
+            # if detalle looks like LEDn, extract number to call device endpoint
+            if detalle and detalle.upper().startswith('LED'):
+                try:
+                    led_num = int(''.join([c for c in detalle if c.isdigit()]))
+                except Exception:
+                    led_num = None
+                if led_num is not None:
+                    # decide estado payload
+                    estado_val = '1' if str(accion).upper() == 'ON' else '0'
+                    # allow device_id to be an IP or host; caller must provide full host or ip
+                    url = f'http://{device_id}/updateLed/{led_num}'
+                    logging.info(f'Attempting to notify device at {url} payload estado={estado_val}')
+                    try:
+                        requests.put(url, json={"led": led_num, "estado": int(estado_val)}, timeout=2)
+                    except Exception as e:
+                        logging.debug(f'Could not contact device {device_id}: {e}')
+        except Exception:
+            # swallow any errors to avoid breaking the API
+            logging.debug('Error trying to notify device')
     return jsonify({"msg":"comando creado", "id_command": cmd.id_command}), 201
 
 @bp.route('', methods=['GET'])
