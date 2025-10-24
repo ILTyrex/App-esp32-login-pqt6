@@ -22,6 +22,7 @@ def _scan_ports(parent):
 
 
 def toggle_connection(parent):
+    # disconnect if already running
     if parent.serial_thread and getattr(parent.serial_thread, 'isRunning', lambda: False)():
         parent.serial_thread.stop()
         try:
@@ -30,9 +31,53 @@ def toggle_connection(parent):
             pass
         return False
 
+    # ensure pyserial is available
+    try:
+        import serial as _pyserial
+    except Exception:
+        QMessage = None
+        try:
+            from PyQt6.QtWidgets import QMessageBox as QMessage
+        except Exception:
+            QMessage = None
+        if QMessage:
+            try:
+                QMessage.information(parent, "Serial no disponible", "pyserial no está instalado o no está disponible en este entorno. Instala 'pyserial' para usar funcionalidades seriales.")
+            except Exception:
+                pass
+        return False
+
     port = parent.port_combo.currentText()
     if not port:
-        return False
+        # try to auto-detect a likely ESP32 port
+        try:
+            ports = [p.device for p in _pyserial.tools.list_ports.comports()]
+            for p in ports:
+                try:
+                    if SerialThread.detect_esp32_port(p):
+                        port = p
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            ports = []
+        if not port:
+            return False
+
+    # quick check: is this port likely an esp32?
+    try:
+        ok = SerialThread.detect_esp32_port(port)
+    except Exception:
+        ok = False
+
+    if not ok:
+        # still proceed but inform user that the chosen port may not be ESP32
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(parent, "Puerto no verificado", f"El puerto {port} no parece ser un dispositivo ESP32 según heurísticas. Intentando conectar de todas formas.")
+        except Exception:
+            pass
+
     st = SerialThread(port)
     parent.serial_thread = st
     try:
@@ -40,12 +85,20 @@ def toggle_connection(parent):
         st.line_received.connect(lambda line: parent.on_line(line))
     except Exception:
         pass
-    st.start()
     try:
-        parent.connect_btn.setText("⏳  Conectando...")
-    except Exception:
-        pass
-    return True
+        st.start()
+        try:
+            parent.connect_btn.setText("⏳  Conectando...")
+        except Exception:
+            pass
+        return True
+    except Exception as e:
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(parent, "Error", f"No se pudo iniciar hilo serial: {e}")
+        except Exception:
+            pass
+        return False
 
 
 def on_connected(parent, ok: bool):
