@@ -15,12 +15,21 @@ function toColombiaTime(utcDate) {
 
 export default function Dashboard() {
   const [events, setEvents] = useState([]);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
     // poll events periodically
     fetchEvents();
     const id = setInterval(() => fetchEvents(), 1000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setWindowWidth(window.innerWidth);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   async function fetchEvents() {
@@ -160,12 +169,62 @@ export default function Dashboard() {
     ],
   };
 
-  const chartOptions = { maintainAspectRatio: false }
-
-  const topGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }
-  const bottomGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginTop: 16 }
-  const topCardChartStyle = { height: 380 }
-  const bottomCardChartStyle = { height: 420 }
+  // Estilos base para las grillas
+  const gridBaseStyle = { display: 'grid', gap: '16px', width: '100%' }
+  
+  // Media queries aplicadas con condición de ventana
+  const isWideScreen = window.innerWidth >= 1200
+  const isMediumScreen = window.innerWidth >= 768 && window.innerWidth < 1200
+  
+  const topGridStyle = {
+    ...gridBaseStyle,
+    gridTemplateColumns: isWideScreen ? 'repeat(3, 1fr)' : (isMediumScreen ? 'repeat(2, 1fr)' : '1fr'),
+    marginBottom: '16px'
+  }
+  
+  const bottomGridStyle = {
+    ...gridBaseStyle,
+    gridTemplateColumns: isWideScreen || isMediumScreen ? 'repeat(2, 1fr)' : '1fr',
+    marginTop: '16px'
+  }
+  
+  // Altura base para las tarjetas según el viewport
+  const chartBaseHeight = Math.min(window.innerHeight * 0.45, 420)
+  const cardBaseStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    height: chartBaseHeight,
+    minHeight: '300px',
+    overflow: 'hidden'
+  }
+  
+  // Opciones comunes para todos los gráficos
+  const chartOptions = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          boxWidth: 12,
+          padding: 8
+        }
+      }
+    }
+  }
+  
+  // Opciones específicas para gráficos tipo dona
+  const doughnutOptions = {
+    ...chartOptions,
+    cutout: '65%',
+    plugins: {
+      ...chartOptions.plugins,
+      legend: {
+        ...chartOptions.plugins.legend,
+        position: 'right'
+      }
+    }
+  }
 
   return (
     <div>
@@ -184,40 +243,40 @@ export default function Dashboard() {
 
       {/* Top row: 3 charts */}
       <div style={topGridStyle}>
-        <div className="card" style={topCardChartStyle}>
+        <div className="card" style={cardBaseStyle}>
           <h4>Línea (histórico obstáculos)</h4>
-          <div style={{ height: '100%' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
             <Line data={lineData} options={chartOptions} />
           </div>
         </div>
 
-        <div className="card" style={topCardChartStyle}>
+        <div className="card" style={cardBaseStyle}>
           <h4>Barras (LEDs)</h4>
-          <div style={{ height: '100%' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
             <Bar data={barData} options={chartOptions} />
           </div>
         </div>
 
-        <div className="card" style={topCardChartStyle}>
+        <div className="card" style={cardBaseStyle}>
           <h4>Dona (sensor)</h4>
-          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Doughnut data={doughnutData} options={chartOptions} />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Doughnut data={doughnutData} options={doughnutOptions} />
           </div>
         </div>
       </div>
 
       {/* Bottom row: 2 charts */}
       <div style={bottomGridStyle}>
-        <div className="card" style={bottomCardChartStyle}>
+        <div className="card" style={cardBaseStyle}>
           <h4>Origen de eventos</h4>
-          <div style={{ height: '100%' }}>
-            <Doughnut data={eventOriginData} options={chartOptions} />
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Doughnut data={eventOriginData} options={doughnutOptions} />
           </div>
         </div>
 
-        <div className="card" style={bottomCardChartStyle}>
+        <div className="card" style={cardBaseStyle}>
           <h4>Evolución del contador</h4>
-          <div style={{ height: '100%' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
             <Line data={counterData} options={chartOptions} />
           </div>
         </div>
