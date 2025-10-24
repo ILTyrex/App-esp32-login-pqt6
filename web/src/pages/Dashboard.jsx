@@ -58,7 +58,7 @@ export default function Dashboard() {
   const sensorEv = lastByDetalle["SENSOR_IR"];
   const sensorOn = sensorEv
     ? sensorEv.tipo_evento === "SENSOR_BLOQUEADO" ||
-      String(sensorEv.valor).toUpperCase() === "ON"
+      String(sensorEv.valor).toLowerCase() === "true"
     : false;
 
   // compute cumulative obstacle count and track counter evolution
@@ -74,17 +74,15 @@ export default function Dashboard() {
     }
 
     // Track obstacle count
-    if (ev.tipo_evento === "RESET_CONTADOR") {
-      obstacleCount = 0; // Reinicia el conteo
-    } else if (
-      ev.tipo_evento === "CONTADOR_CAMBIO" &&
-      ev.detalle === "CONTADOR"
-    ) {
-      obstacleCount = parseInt(ev.valor) || obstacleCount; // Contador absoluto del ESP32
-    } else if (ev.tipo_evento === "SENSOR_BLOQUEADO") {
-      obstacleCount += 1; // Solo sumar bloqueos
+    if (ev.tipo_evento === "CONTADOR_CAMBIO" && ev.detalle === "CONTADOR") {
+      // Usar el valor del contador directamente del circuito
+      obstacleCount = parseInt(ev.valor) || obstacleCount;
+    } else if (ev.tipo_evento === "SENSOR_BLOQUEADO" && ev.origen === "WEB") {
+      // Solo incrementar si el evento viene de la web
+      obstacleCount += 1;
+    } else if (ev.tipo_evento === "RESET_CONTADOR") {
+      obstacleCount = 0;
     }
-
     historyPoints.push({ ts: ev.fecha_hora, obstacleCount });
 
     // Track counter evolution
@@ -93,34 +91,20 @@ export default function Dashboard() {
     }
   });
 
+  // Indicadores: tarjeta con contador total de eventos registrados
   const indicators = [
     { label: "LEDs encendidos", value: ledsOnCount },
     { label: "Sensor", value: sensorOn ? "Bloqueado" : "Libre" },
     { label: "Obstáculos (cont.)", value: obstacleCount },
-    {
-      label: "Última actualización",
-      value: events.length
-        ? toColombiaTime(events[events.length - 1].fecha_hora).toLocaleString(
-            "es-CO",
-            {
-              hour12: true,
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-            }
-          )
-        : "---",
-    },
+    { label: "Eventos registrados", value: events.length },
   ];
 
   const history = historyPoints.length
     ? historyPoints
     : [{ ts: new Date().toISOString(), obstacleCount: 0 }];
+  // Mostrar solo la fecha en las etiquetas del eje X (sin hora)
   const labels = history.map((h) =>
-    toColombiaTime(h.ts).toLocaleTimeString("es-CO")
+    toColombiaTime(h.ts).toLocaleDateString("es-CO")
   );
   const lineData = {
     labels,
@@ -182,7 +166,11 @@ export default function Dashboard() {
         {indicators.map((it) => (
           <div className="card" key={it.label}>
             <h4>{it.label}</h4>
-            <div style={{ fontSize: 28, fontWeight: 700 }}>{it.value}</div>
+            {it.content ? (
+              it.content
+            ) : (
+              <div style={{ fontSize: 28, fontWeight: 700 }}>{it.value}</div>
+            )}
           </div>
         ))}
       </div>
