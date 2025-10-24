@@ -55,10 +55,13 @@ export default function Dashboard(){
     }
 
     // Track obstacle count
-    if(ev.tipo_evento === 'SENSOR_BLOQUEADO'){
+    if(ev.tipo_evento === 'CONTADOR_CAMBIO' && ev.detalle === 'CONTADOR') {
+      // Usar el valor del contador directamente del circuito
+      obstacleCount = parseInt(ev.valor) || obstacleCount
+    } else if(ev.tipo_evento === 'SENSOR_BLOQUEADO' && ev.origen === 'WEB'){
+      // Solo incrementar si el evento viene de la web
       obstacleCount += 1
-    }
-    if(ev.tipo_evento === 'RESET_CONTADOR'){
+    } else if(ev.tipo_evento === 'RESET_CONTADOR'){
       obstacleCount = 0
     }
     historyPoints.push({ ts: ev.fecha_hora, obstacleCount })
