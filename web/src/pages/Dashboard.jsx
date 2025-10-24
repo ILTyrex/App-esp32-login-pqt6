@@ -80,19 +80,12 @@ export default function Dashboard(){
     }
   })
 
+  // Indicadores: tarjeta con contador total de eventos registrados
   const indicators = [
     {label:'LEDs encendidos', value: ledsOnCount},
     {label:'Sensor', value: sensorOn ? 'Bloqueado' : 'Libre'},
     {label:'Obstáculos (cont.)', value: obstacleCount},
-    {label:'Última actualización', value: events.length ? toColombiaTime(events[events.length-1].fecha_hora).toLocaleString('es-CO', { 
-      hour12: true,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }) : '---'}
+    {label:'Eventos registrados', value: events.length}
   ]
 
   const history = historyPoints.length ? historyPoints : [{ts: new Date().toISOString(), obstacleCount: 0}]
@@ -128,7 +121,7 @@ export default function Dashboard(){
         {indicators.map((it)=> (
           <div className="card" key={it.label}>
             <h4>{it.label}</h4>
-            <div style={{fontSize:28,fontWeight:700}}>{it.value}</div>
+            {it.content ? it.content : <div style={{fontSize:28,fontWeight:700}}>{it.value}</div>}
           </div>
         ))}
       </div>
