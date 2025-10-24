@@ -27,9 +27,9 @@ def receive_data():
         fecha_hora=datetime.now(colombia_tz),
         origen_ip=request.remote_addr
     )
-
     db.session.add(evento)
     db.session.commit()
+
     return {"msg": "Evento guardado correctamente"}, 201
 
 
@@ -48,7 +48,6 @@ def secure_data():
         fecha_hora=datetime.utcnow(),
         origen_ip=request.remote_addr
     )
-
     db.session.add(evento)
     db.session.commit()
     return {"msg": "Evento guardado por usuario autenticado", "user": uid}, 201
