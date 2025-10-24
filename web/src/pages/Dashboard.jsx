@@ -89,7 +89,8 @@ export default function Dashboard(){
   ]
 
   const history = historyPoints.length ? historyPoints : [{ts: new Date().toISOString(), obstacleCount: 0}]
-  const labels = history.map(h => toColombiaTime(h.ts).toLocaleTimeString('es-CO'))
+  // Mostrar solo la fecha en las etiquetas del eje X (sin hora)
+  const labels = history.map(h => toColombiaTime(h.ts).toLocaleDateString('es-CO'))
   const lineData = { labels, datasets:[{label:'Obstáculos', data: history.map(h=>h.obstacleCount || 0), borderColor:'#1e90ff', tension:0.3}] }
 
   const barData = { labels: ['LEDs encendidos'], datasets:[{label:'LEDs', data:[ledsOnCount], backgroundColor:'#3b82f6'}] }
