@@ -33,8 +33,8 @@ class Evento(db.Model):
     __tablename__ = "eventos"
     id_evento = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey("usuarios.id_usuario"), nullable=False)
-    tipo_evento = db.Column(db.Enum("LED_ON", "LED_OFF", "SENSOR_BLOQUEADO", "SENSOR_LIBRE", "RESET_CONTADOR", "CONTADOR_CAMBIO"), nullable=False)
-    detalle = db.Column(db.Enum("LED1", "LED2", "LED3", "LED4", "SENSOR_IR", "CONTADOR"), nullable=False)
+    tipo_evento = db.Column(db.Enum("LED_ON", "LED_OFF", "SENSOR_BLOQUEADO", "SENSOR_LIBRE", "RESET_CONTADOR", "CONTADOR_CAMBIO", "LOGIN"), nullable=False)
+    detalle = db.Column(db.Enum("LED1", "LED2", "LED3", "LED4", "SENSOR_IR", "CONTADOR", "LOGIN_USER"), nullable=False)
     # extend origen enum to include WEB (frontend web app)
     origen = db.Column(db.Enum("APP", "WEB", "CIRCUITO"), nullable=False)
     valor = db.Column(db.String(50), nullable=False)

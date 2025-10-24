@@ -34,6 +34,11 @@ bool stateLed2 = false;
 bool stateLed3 = false;
 bool stateLed4 = false;
 
+// Último evento web procesado
+unsigned long lastEventPoll = 0;
+const unsigned long EVENT_POLL_INTERVAL = 2000; // ms
+long lastEventId = 0;
+
 // Estados anteriores botones
 bool lastBtn1 = LOW;
 bool lastBtn2 = LOW;
@@ -188,50 +193,54 @@ void fetchAndShowLastEvents()
   int n = arr.size();
   int start = max(0, n - 5);
 
-  // Construir líneas numeradas (1..k)
+  // Construir líneas numeradas (1..k) sin mostrar el id de usuario
   String lines[5];
   int idx = 0;
   for (int i = start; i < n && idx < 5; i++)
   {
     JsonObject ev = arr[i];
-    String idu = String(ev["id_usuario"] | 1);
     String detalle = String(ev["detalle"] | "");
     String valor = String(ev["valor"] | "");
-    // Formato: "{num} U{user} {detalle} {valor}"
-    String content = String(idx + 1) + " U" + idu + " " + detalle + " " + valor;
+    // Formato: "{num} {detalle} {valor}" (sin id_usuario)
+    String content = String(idx + 1) + " " + detalle + " " + valor;
     if (content.length() > 16)
       content = content.substring(0, 16);
     lines[idx++] = content;
   }
 
-  // Mostrar 2 primeros
+  // Primera muestra: título "EVENTOS" y el evento 1
   lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("EVENTOS");
   if (idx >= 1)
-    lcd.setCursor(0, 0), lcd.print(lines[0]);
-  if (idx >= 2)
-    lcd.setCursor(0, 1), lcd.print(lines[1]);
+  {
+    lcd.setCursor(0, 1);
+    lcd.print(lines[0]);
+  }
   delay(1500);
 
-  // Mostrar siguientes 2 (índice 3 y 4)
-  if (idx >= 3)
+  // Segunda muestra: mostrar eventos 2 y 3 (si existen)
+  if (idx >= 2)
   {
     lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(lines[2]);
-    if (idx >= 4)
-    {
-      lcd.setCursor(0, 1);
-      lcd.print(lines[3]);
-    }
+    if (idx >= 2)
+      lcd.setCursor(0, 0), lcd.print(lines[1]);
+    if (idx >= 3)
+      lcd.setCursor(0, 1), lcd.print(lines[2]);
     delay(1500);
   }
 
-  // Mostrar el último (si existe)
-  if (idx == 5)
+  // Tercera muestra: mostrar eventos 4 y 5 (si existen)
+  if (idx >= 4)
   {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print(lines[4]);
+    lcd.print(lines[3]);
+    if (idx >= 5)
+    {
+      lcd.setCursor(0, 1);
+      lcd.print(lines[4]);
+    }
     delay(1500);
   }
 
@@ -351,6 +360,196 @@ void updateLed(int ledNum, bool estado)
   String ledStr = "LED" + String(ledNum);
   String estadoStr = estado ? "ON" : "OFF";
   sendEvent("LED_" + estadoStr, ledStr, estadoStr);
+}
+
+// Consulta al servidor por el último evento WEB de tipo LED_ON/LED_OFF
+void pollLastEvent()
+{
+  if (WiFi.status() != WL_CONNECTED)
+    return;
+
+  HTTPClient http;
+  String url = String(baseUrl) + "/api/esp32/last-event";
+  http.begin(url);
+  int httpCode = http.GET();
+  if (httpCode == HTTP_CODE_OK)
+  {
+    String payload = http.getString();
+    http.end();
+    StaticJsonDocument<512> doc;
+    DeserializationError err = deserializeJson(doc, payload);
+    if (!err)
+    {
+      if (!doc["event"].isNull())
+      {
+        JsonObject ev = doc["event"];
+        long id = ev["id_evento"] | 0;
+        String detalle = String(ev["detalle"] | "");
+        String valor = String(ev["valor"] | "");
+        String tipo = String(ev["tipo_evento"] | "");
+
+        // Normalizar y limpiar strings para evitar problemas de formato
+        detalle.trim();
+        valor.trim();
+        tipo.trim();
+        detalle.toUpperCase();
+        valor.toUpperCase();
+        tipo.toUpperCase();
+
+        if (id != lastEventId && id != 0)
+        {
+          lastEventId = id;
+          Serial.println("WEBCMD: id=" + String(id) + " detalle=" + detalle + " valor=" + valor);
+
+          // Determinar si debe encenderse
+          bool setOn = (valor == "ON" || valor == "1" || valor == "TRUE");
+
+          // Manejar reset de contador enviado desde la WEB
+          bool handledReset = false;
+          if (tipo == "RESET_CONTADOR" || (detalle.indexOf("CONTADOR") >= 0 && (valor == "RESET" || valor == "0")))
+          {
+            // Solo aplicar el reset si estamos en los menús de sensor (5 o 6).
+            if (currentMenu == 5 || currentMenu == 6)
+            {
+              // Aplicar reset localmente en ESP32: contador y pantalla
+              counter = 0;
+              Serial.println("APPLIED WEB -> RESET_CONTADOR: counter set to 0");
+              showCounter();
+              // Registrar que procesamos este evento
+              lastEventId = id;
+              handledReset = true;
+            }
+            else
+            {
+              // Ignorar por ahora; no marcamos lastEventId para que se procese cuando
+              // el usuario esté en el menú 5 o 6 en un poll futuro.
+              Serial.println(String("IGNORED WEB -> RESET_CONTADOR: currentMenu=") + String(currentMenu));
+            }
+          }
+
+          // Manejar login enviado desde la WEB: mostrar usuario en LCD
+          if (tipo == "LOGIN")
+          {
+            String user = valor;
+            user.trim();
+            if (user.length() > 0)
+            {
+              // Guardar usuario y mostrar mensaje de bienvenida temporalmente
+              currentUser = user;
+              Serial.println(String("APPLIED WEB -> LOGIN: ") + currentUser);
+              int prevMenu = currentMenu; // recordar menú actual
+              showWelcomeUser();
+              delay(1500);
+
+              // Restaurar la vista según el menú en el que estábamos
+              if (prevMenu == 0)
+                showMainMenu();
+              else if (prevMenu == 1)
+                showLedMenu();
+              else if (prevMenu == 4)
+                showLedStates();
+              else if (prevMenu == 2)
+                showSensorMenu();
+              else if (prevMenu == 5 || prevMenu == 6)
+                showCounter();
+
+              // Marcar evento como procesado
+              lastEventId = id;
+              // continue with loop (do not process as LED/reset)
+            }
+          }
+
+          // Si no fue un reset, procesar comandos de LED
+          if (!handledReset)
+          {
+            // Extraer número de LED del campo detalle de forma robusta (acepta "LED1", "LED 1", "led-1", etc.)
+            int ledNum = 0;
+            for (unsigned int i = 0; i < detalle.length(); i++)
+            {
+              char c = detalle.charAt(i);
+              if (c >= '0' && c <= '9')
+              {
+                ledNum = ledNum * 10 + (c - '0');
+              }
+            }
+
+            // Si no se detectó número, intentar parsear formas tipo "LED1" (fallback)
+            if (ledNum == 0 && detalle.startsWith("LED"))
+            {
+              ledNum = detalle.substring(3).toInt();
+            }
+
+            // Aplicar cambio físico SOLO si estamos en los menús permitidos (1 o 4).
+            // Si no, ignorar el comando web para evitar que los LEDs cambien fuera de esos menús.
+            if (ledNum >= 1 && ledNum <= 4)
+            {
+              if (currentMenu == 1 || currentMenu == 4)
+              {
+                if (ledNum == 1)
+                {
+                  digitalWrite(LED1, setOn ? HIGH : LOW);
+                  stateLed1 = setOn;
+                  Serial.println(String("APPLIED WEB -> LED1: ") + (setOn ? "ON" : "OFF"));
+                }
+                else if (ledNum == 2)
+                {
+                  digitalWrite(LED2, setOn ? HIGH : LOW);
+                  stateLed2 = setOn;
+                  Serial.println(String("APPLIED WEB -> LED2: ") + (setOn ? "ON" : "OFF"));
+                }
+                else if (ledNum == 3)
+                {
+                  digitalWrite(LED3, setOn ? HIGH : LOW);
+                  stateLed3 = setOn;
+                  Serial.println(String("APPLIED WEB -> LED3: ") + (setOn ? "ON" : "OFF"));
+                }
+                else if (ledNum == 4)
+                {
+                  digitalWrite(LED4, setOn ? HIGH : LOW);
+                  stateLed4 = setOn;
+                  Serial.println(String("APPLIED WEB -> LED4: ") + (setOn ? "ON" : "OFF"));
+                }
+
+                // Refrescar la UI donde corresponda (si estamos viendo LEDs o sensor)
+                if (currentMenu == 4)
+                {
+                  showLedStates();
+                }
+                else if (currentMenu == 1)
+                {
+                  // Mantener la navegación pero refrescar la información
+                  showLedStates();
+                  delay(500);
+                  showLedMenu();
+                }
+                else if (currentMenu == 2 || currentMenu == 5 || currentMenu == 6)
+                {
+                  showSensorStates();
+                }
+              }
+              else
+              {
+                // Ignorar comando web: no estamos en menú 1 ni 4
+                Serial.println(String("IGNORED WEB -> LED") + String(ledNum) + ": currentMenu=" + String(currentMenu));
+              }
+            }
+          }
+          else
+          {
+            Serial.println("WEBCMD: detalle no corresponde a LED valido -> " + detalle);
+          }
+        }
+      }
+    }
+    else
+    {
+      Serial.println("pollLastEvent: JSON parse error");
+    }
+  }
+  else
+  {
+    http.end();
+  }
 }
 
 void setup()
@@ -741,9 +940,10 @@ void loop()
   }
 
   static unsigned long lastGet = 0;
-  if (millis() - lastGet > 10000)
+  if (millis() - lastGet > EVENT_POLL_INTERVAL)
   {
     lastGet = millis();
+    pollLastEvent();
   }
 
   delay(50);

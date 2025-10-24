@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from server.extensions import db
-from server.models import Usuario, Dispositivo
+from server.models import Usuario, Dispositivo, Evento
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import datetime
@@ -22,6 +22,7 @@ def register():
     user = Usuario(usuario=username, contrasena=hashed)
     db.session.add(user)
     db.session.commit()
+    # Nota: no registrar evento en register (se registrará al hacer login)
     return jsonify({"msg": "usuario creado", "id_usuario": user.id_usuario}), 201
 
 @bp.route('/login', methods=['POST'])
@@ -65,6 +66,22 @@ def login():
         device.last_seen = datetime.datetime.now(colombia_tz)
         device.activo = True
     db.session.commit()
+    # Crear un evento de login para que aparezca en la tabla eventos
+    try:
+        evento = Evento(
+            id_usuario=user.id_usuario,
+            tipo_evento='LOGIN',
+            detalle='LOGIN_USER',
+            origen='WEB',
+            valor=user.usuario,
+            fecha_hora=datetime.datetime.now(colombia_tz),
+            origen_ip=ip_address
+        )
+        db.session.add(evento)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
     return jsonify({
         "msg": f"Bienvenido {user.usuario}",
         "access_token": access_token,

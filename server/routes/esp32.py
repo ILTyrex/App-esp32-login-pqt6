@@ -45,3 +45,22 @@ def get_data():
         Evento.query.order_by(Evento.fecha_hora.desc()).limit(5).all()
     )
     return {"events": [e.to_dict() for e in events]}, 200
+
+
+@bp.route("/last-event", methods=["GET"])
+def get_last_event():
+    """
+    Devuelve el último evento creado desde la WEB que sea relevante para el ESP.
+    Actualmente incluye comandos para LEDs ('LED_ON','LED_OFF') y para resetear el
+    contador ('RESET_CONTADOR'). El ESP puede consultar esta ruta periódicamente y,
+    si hay un evento nuevo, leer los campos `tipo_evento`, `detalle` (ej. 'LED1' o 'CONTADOR')
+    y `valor` ('ON'|'OFF'|'RESET') para accionar el hardware y la pantalla.
+    """
+    # Filtrar solo eventos creados por la WEB que interesan al ESP
+    # (LED on/off, reset contador y login de usuario)
+    q = Evento.query.filter(Evento.origen == 'WEB', Evento.tipo_evento.in_(['LED_ON', 'LED_OFF', 'RESET_CONTADOR', 'LOGIN']))
+    ev = q.order_by(Evento.fecha_hora.desc()).first()
+    if not ev:
+        return {"event": None}, 200
+    return {"event": ev.to_dict()}, 200
+
