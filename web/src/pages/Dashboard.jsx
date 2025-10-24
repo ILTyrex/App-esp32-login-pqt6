@@ -160,6 +160,13 @@ export default function Dashboard() {
     ],
   };
 
+  const chartOptions = { maintainAspectRatio: false }
+
+  const topGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }
+  const bottomGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginTop: 16 }
+  const topCardChartStyle = { height: 380 }
+  const bottomCardChartStyle = { height: 420 }
+
   return (
     <div>
       <div className="grid">
@@ -175,26 +182,44 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="grid" style={{ marginTop: 16 }}>
-        <div className="card">
+      {/* Top row: 3 charts */}
+      <div style={topGridStyle}>
+        <div className="card" style={topCardChartStyle}>
           <h4>Línea (histórico obstáculos)</h4>
-          <Line data={lineData} />
+          <div style={{ height: '100%' }}>
+            <Line data={lineData} options={chartOptions} />
+          </div>
         </div>
-        <div className="card">
+
+        <div className="card" style={topCardChartStyle}>
           <h4>Barras (LEDs)</h4>
-          <Bar data={barData} />
+          <div style={{ height: '100%' }}>
+            <Bar data={barData} options={chartOptions} />
+          </div>
         </div>
-        <div className="card">
+
+        <div className="card" style={topCardChartStyle}>
           <h4>Dona (sensor)</h4>
-          <Doughnut data={doughnutData} />
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Doughnut data={doughnutData} options={chartOptions} />
+          </div>
         </div>
-        <div className="card">
+      </div>
+
+      {/* Bottom row: 2 charts */}
+      <div style={bottomGridStyle}>
+        <div className="card" style={bottomCardChartStyle}>
           <h4>Origen de eventos</h4>
-          <Doughnut data={eventOriginData} />
+          <div style={{ height: '100%' }}>
+            <Doughnut data={eventOriginData} options={chartOptions} />
+          </div>
         </div>
-        <div className="card">
+
+        <div className="card" style={bottomCardChartStyle}>
           <h4>Evolución del contador</h4>
-          <Line data={counterData} />
+          <div style={{ height: '100%' }}>
+            <Line data={counterData} options={chartOptions} />
+          </div>
         </div>
       </div>
     </div>
