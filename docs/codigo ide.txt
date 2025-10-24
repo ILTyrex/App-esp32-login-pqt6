@@ -1,27 +1,38 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-
+#include <Keypad.h>
 #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
 
 LiquidCrystal_PCF8574 lcd(0x27);
 
-// Pins
-const int BTN1 = 18;  // BLUE
-const int BTN2 = 19;  // RED
-const int BTN3 = 21;  // GREEN
-const int SENSOR = 34;
+// BOTONES
+const int BTN1 = 35;  // BLUE
+const int BTN2 = 34;  // RED
+const int BTN3 = 39;  // GREEN
 
-const int LED_BLUE  = 27;  
-const int LED_RED   = 26;  
-const int LED_GREEN = 25;  
-const int LED4 = 14;  // parpadeo al contar sensor
+// SENSOR
+const int SENSOR = 23;
+bool sensorState = false;
+bool lastSensorActivo = false;
+int lastSensorState;
 
-// Estados de LEDs
-bool stateRed = false;
-bool stateGreen = false;
-bool stateBlue = false;
+// LEDS
+const int LED1 = 16; // BLUE
+const int LED2 = 17; // RED
+const int LED3 = 5; // GREEN
+const int LED4 = 22; // YELLOW
+
+// LCD (I2C)
+const int LCD1 = 19; //SDA
+const int LCD2 = 21; //SCL
+
+// Estados de leds
+bool stateLed1 = false;
+bool stateLed2 = false;
+bool stateLed3 = false;
+bool stateLed4 = false;
 
 // Estados anteriores botones
 bool lastBtn1 = LOW;
@@ -29,196 +40,121 @@ bool lastBtn2 = LOW;
 bool lastBtn3 = LOW;
 
 int counter = 0;
-int lastSensorState;
+int currentMenu = 0; // 0 = menú principal, 1 = LED, 2 = Sensor, 3 = Estado BD
+String currentUser = "";  // Nombre del usuario logueado
 
-// Nuevo: modo de conexión (true = LAN, false = Serial)
-bool useLAN = false;
+// Wifi
+const char* ssid = "Redmi Note 13"; //Nombre de la red que te vas a conectar
+const char* password = "3004400219"; 
+const char* baseUrl = "http://10.130.199.140:5000";   //La ip y el puerto de la pc
 
-void showCounter() {
+// TECLADO MATRICIAL
+const byte ROWS = 4;
+const byte COLS = 4;
+char keys[ROWS][COLS] = {
+  {'1','2','3','A'},
+  {'4','5','6','B'},
+  {'7','8','9','C'},
+  {'*','0','#','D'}
+};
+byte rowPins[ROWS] = {13, 12, 14, 27};   // Filas
+byte colPins[COLS] = {26, 25, 33, 32};   // Columnas
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+// Funciones LCD
+void showWelcomeUser() {
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Counter:");
+  lcd.print("Bienvenido:");
+  lcd.setCursor(0, 1);
+  if (currentUser.length() > 0) {
+    lcd.print(currentUser);
+  } else {
+    lcd.print("Usuario N/D"); // Por si no hay nombre aún
+  }
+}
+void showMainMenu() {
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("1-Leds");
+  lcd.setCursor(8,0);
+  lcd.print("2-Sensor");
+  lcd.setCursor(2,1);
+  lcd.print("3-Estado BD");
+}
+// Menus
+void showLedMenu() {
+  lcd.clear();
+  lcd.setCursor(2, 0);
+  lcd.print("1-ON");
+  lcd.setCursor(9, 0);
+  lcd.print("2-OFF");
+  lcd.setCursor(3, 1);
+  lcd.print("3-Estados");
+}
+void showSensorMenu() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("1-Estado");
+  lcd.setCursor(0, 1);
+  lcd.print("2-Conteo");
+}
+void showEstadoBDMenu() {
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Mostrando ultimos");
+  lcd.setCursor(0,1);
+  lcd.print("5 estados...");
+}
+void showLedStates() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("LED1 LED2 LED3");
+  lcd.setCursor(0, 1);
+  lcd.print(stateLed1 ? " ON" : "OFF");
+  lcd.setCursor(5, 1);
+  lcd.print(stateLed2 ? " ON" : "OFF");
+  lcd.setCursor(10, 1);
+  lcd.print(stateLed3 ? " ON" : "OFF");
+}
+
+void showSensorStates(){
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("SENSOR");
+  lcd.setCursor(12, 0);
+  lcd.print("LED4");
+  lcd.setCursor(0, 1);
+  lcd.print(sensorState ? "Bloqueado" : "Libre");
+  lcd.setCursor(12, 1);
+  lcd.print(stateLed4 ? " ON" : "OFF");
+}
+void showCounter(){
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("CONTEO");
   lcd.setCursor(0, 1);
   lcd.print(counter);
+  lcd.setCursor(12, 0);
+  lcd.print("LED4");
+  lcd.setCursor(12, 1);
+  lcd.print(stateLed4 ? " ON" : "OFF");
 }
 
-void showMessage(const char* message) {
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print(message);
-  delay(1000); 
-  showCounter();
-}
-
-void setup() {
-  Serial.begin(115200);
-  Serial.println("Starting LCD...");
-
-  Wire.begin(16, 17);
-
-  lcd.begin(16, 2);
-  lcd.setBacklight(255); 
-  lcd.clear();
-
-  showCounter();
-
-  pinMode(BTN1, INPUT);
-  pinMode(BTN2, INPUT);
-  pinMode(BTN3, INPUT);
-  pinMode(SENSOR, INPUT);
-
-  pinMode(LED_RED, OUTPUT);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_BLUE, OUTPUT);
-  pinMode(LED4, OUTPUT);
-
-  digitalWrite(LED_RED, LOW);
-  digitalWrite(LED_GREEN, LOW);
-  digitalWrite(LED_BLUE, LOW);
-  digitalWrite(LED4, LOW);
-
-  lastSensorState = digitalRead(SENSOR);
-
-  // Intentar conectar a WiFi; si falla, quedamos en modo Serial
-  useLAN = connectWiFi();
-
-}
-
-void loop() {
-  // ----------- LECTURA BOTONES -----------
-  bool btn1 = digitalRead(BTN1);
-  bool btn2 = digitalRead(BTN2);
-  bool btn3 = digitalRead(BTN3);
-
-  if (lastBtn1 == LOW && btn1 == HIGH) {
-    stateBlue = !stateBlue;
-    digitalWrite(LED_BLUE, stateBlue);
-    Serial.print("ACK:LED:1:");
-    Serial.println(stateBlue ? "1" : "0");
-    showMessage(stateBlue ? "Button BLUE ON" : "Button BLUE OFF");
-    updateLed(1, stateBlue);
-  }
-  lastBtn1 = btn1;
-
-  if (lastBtn2 == LOW && btn2 == HIGH) {
-    stateRed = !stateRed;
-    digitalWrite(LED_RED, stateRed);
-    Serial.print("ACK:LED:2:");
-    Serial.println(stateRed ? "1" : "0");
-    showMessage(stateRed ? "Button RED ON" : "Button RED OFF");
-    updateLed(2, stateRed);
-  }
-  lastBtn2 = btn2;
-
-  if (lastBtn3 == LOW && btn3 == HIGH) {
-    stateGreen = !stateGreen;
-    digitalWrite(LED_GREEN, stateGreen);
-    Serial.print("ACK:LED:3:");
-    Serial.println(stateGreen ? "1" : "0");
-    showMessage(stateGreen ? "Button GREEN ON" : "Button GREEN OFF");
-    updateLed(3, stateGreen); 
-  }
-  lastBtn3 = btn3;
-
-  // ----------- SENSOR -----------
-  int sensorState = digitalRead(SENSOR);
-
-  if (sensorState == HIGH && lastSensorState == LOW) {
-    counter++;
-    showCounter();
-    digitalWrite(LED4, HIGH);
-    Serial.println("SENSOR:1");
-    delay(200);
-    digitalWrite(LED4, LOW);
-    Serial.println("SENSOR:0");
-    sendCounter();
-  }
-
-  lastSensorState = sensorState;
-
-  // ----------- LECTURA COMANDOS SERIAL -----------
- if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
-
-    if (cmd.startsWith("LED:")) {
-      int ledNum = cmd.substring(4, 5).toInt();
-      int value = cmd.substring(6).toInt();
-
-      if (ledNum == 1) {
-        digitalWrite(LED_BLUE, value);
-        stateBlue = value;
-        Serial.print("ACK:LED:1:");
-        Serial.println(value);
-        updateLed(1, value);   
-
-      } else if (ledNum == 2) {
-        digitalWrite(LED_RED, value);
-        stateRed = value;
-        Serial.print("ACK:LED:2:");
-        Serial.println(value);
-        updateLed(2, value);   
-
-      } else if (ledNum == 3) {
-        digitalWrite(LED_GREEN, value);
-        stateGreen = value;
-        Serial.print("ACK:LED:3:");
-        Serial.println(value);
-        updateLed(3, value);   
-      }
-    }
-    else if (cmd == "RESET") {
-      counter = 0;
-      showMessage("Counter Reset");
-      Serial.println("ACK:RESET");
-      sendCounter();  
-    }
-  }
-
-  static unsigned long lastGet = 0;
-  if (useLAN && (millis() - lastGet > 10000)) {
-    getDatos();
-    lastGet = millis();
-  }
-
-  delay(50);
-}
-
-
-const char* ssid = "test1"; //Nombre de la red que te vas a conectar
-const char* password = "123456"; 
-const char* baseUrl = "http://192.168.1.5:5000";   //La ip y el puerto de la pc
-
-// Cambiado: ahora devuelve true si se conectó, false si no (timeout)
-bool connectWiFi() {
+// Funciones Wifi y Http
+void connectWiFi() {
   WiFi.begin(ssid, password);
   Serial.print("Conectando a WiFi");
-  unsigned long start = millis();
-  const unsigned long timeout = 8000; // 8s para decidir modo
-  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout) {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(250);
     Serial.print(".");
   }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi conectado");
-    Serial.print("IP ESP32: ");
-    Serial.println(WiFi.localIP());
-    Serial.println(WiFi.status());
-    return true;
-  } else {
-    Serial.println("\nWiFi NO conectado, usando modo SERIAL");
-    return false;
-  }
+  Serial.println("\nWiFi conectado");
+  Serial.print("IP ESP32: ");
+  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.status());
 }
-
 void sendCounter() {
-  if (!useLAN) {
-    // En modo Serial no hacemos petición HTTP; solo confirmamos por Serial
-    Serial.print("LOCAL_COUNTER:");
-    Serial.println(counter);
-    return;
-  }
-
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     StaticJsonDocument<200> jsonDoc;
@@ -234,17 +170,7 @@ void sendCounter() {
     http.end();
   }
 }
-
 void updateLed(int ledNum, bool estado) {
-  // Si no estamos en LAN, no intentamos HTTP; respondemos por Serial
-  if (!useLAN) {
-    Serial.print("ACK:LED:");
-    Serial.print(ledNum);
-    Serial.print(":");
-    Serial.println(estado ? "1" : "0");
-    return;
-  }
-
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     StaticJsonDocument<200> jsonDoc;
@@ -261,10 +187,7 @@ void updateLed(int ledNum, bool estado) {
     http.end();
   }
 }
-
 void getDatos() {
-  if (!useLAN) return;
-
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(String(baseUrl) + "/getDatos");
@@ -276,15 +199,249 @@ void getDatos() {
 
       StaticJsonDocument<200> doc;
       if (deserializeJson(doc, payload) == DeserializationError::Ok) {
-        stateBlue = doc["led1"];
-        stateRed = doc["led2"];
-        stateGreen = doc["led3"];
+        stateLed1 = doc["led1"];
+        stateLed2 = doc["led2"];
+        stateLed3 = doc["led3"];
 
-        digitalWrite(LED_BLUE, stateBlue);
-        digitalWrite(LED_RED, stateRed);
-        digitalWrite(LED_GREEN, stateGreen);
+        digitalWrite(LED1, stateLed1);
+        digitalWrite(LED2, stateLed2);
+        digitalWrite(LED3, stateLed3);
       }
     }
     http.end();
   }
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Starting LCD...");
+
+  Wire.begin(LCD1, LCD2);
+
+  lcd.begin(16, 2);
+  lcd.setBacklight(255); 
+  
+  currentUser = "David";   // ← Aquí luego pondrás el nombre recibido de la app
+  showWelcomeUser();
+  delay(2000); 
+  showMainMenu();
+
+  pinMode(BTN1, INPUT);
+  pinMode(BTN2, INPUT);
+  pinMode(BTN3, INPUT);
+  pinMode(SENSOR, INPUT);
+
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  pinMode(LED4, OUTPUT);
+
+  digitalWrite(LED1, LOW);
+  digitalWrite(LED2, LOW);
+  digitalWrite(LED3, LOW);
+  digitalWrite(LED4, LOW);
+
+  lastSensorState = digitalRead(SENSOR);
+
+  //connectWiFi();
+}
+
+void loop() {
+  // LECTURA BOTONES
+  bool btn1 = digitalRead(BTN1);
+  bool btn2 = digitalRead(BTN2);
+  bool btn3 = digitalRead(BTN3);
+
+  char key = keypad.getKey();
+  if (currentMenu == 0) {
+    if (key) {
+      Serial.println(String("Opción seleccionada: ") + key);
+      if (key == '1') {
+        currentMenu = 1;
+        showLedMenu();
+        key = '\0';
+      } else if (key == '2') {
+        currentMenu = 2;
+        showSensorMenu();
+        key = '\0';
+      } else if (key == '3') {
+        currentMenu = 3;
+        showEstadoBDMenu();
+        key = '\0';
+      }
+    }
+  } 
+  else {
+    // Si estamos dentro de un submenú, presiona * para volver al principal
+    if (key == '*') {
+      currentMenu = 0;
+      showMainMenu();
+      key = '\0';
+    }
+  }
+
+  // Leds
+  if (currentMenu == 1) {
+    if (key) {
+      if (key == '1') { 
+        // Encender todos los LEDs
+        stateLed1 = stateLed2 = stateLed3 = true;
+        digitalWrite(LED1, HIGH);
+        digitalWrite(LED2, HIGH);
+        digitalWrite(LED3, HIGH);
+        Serial.println("LEDs encendidos");
+        showLedStates();
+        delay(500);
+        showLedMenu();
+      } 
+      else if (key == '2') {
+        // Apagar todos los LEDs
+        stateLed1 = stateLed2 = stateLed3 = false;
+        digitalWrite(LED1, LOW);
+        digitalWrite(LED2, LOW);
+        digitalWrite(LED3, LOW);
+        Serial.println("LEDs apagados");
+        showLedStates();
+        delay(500);
+        showLedMenu();
+      } 
+      else if (key == '3') {
+        // Mostrar estados actuales
+        currentMenu = 4;
+        showLedStates();
+        Serial.println("Mostrando estados de LEDs. Presiona * para volver.");
+        key = '\0';
+      }
+    }
+    if (lastBtn1 == LOW && btn1 == HIGH) {
+      stateLed1 = !stateLed1;
+      digitalWrite(LED1, stateLed1);
+      Serial.println("ACK:LED:1:" + String(stateLed1 ? "1" : "0"));
+      updateLed(1, stateLed1);
+    }
+    lastBtn1 = btn1;
+
+    if (lastBtn2 == LOW && btn2 == HIGH) {
+      stateLed2 = !stateLed2;
+      digitalWrite(LED2, stateLed2);
+      Serial.println("ACK:LED:2:" + String(stateLed2 ? "1" : "0"));
+      updateLed(2, stateLed2);
+    }
+    lastBtn2 = btn2;
+
+    if (lastBtn3 == LOW && btn3 == HIGH) {
+      stateLed3 = !stateLed3;
+      digitalWrite(LED3, stateLed3);
+      Serial.println("ACK:LED:3:" + String(stateLed3 ? "1" : "0"));
+      updateLed(3, stateLed3);
+    }
+    lastBtn3 = btn3;
+  }
+
+  // Submenú: Estados de LEDs
+  if (currentMenu == 4) {
+    if (key == '#') {
+      currentMenu = 1;
+      showLedMenu();
+    }
+  }
+
+  // SENSOR
+  if (currentMenu == 2) {  // Menú Sensor principal
+    if (key) {
+      if (key == '1') {
+        // Mostrar estados del sensor y LED4
+        currentMenu = 5;
+        showSensorStates();
+        Serial.println("Mostrando estado de sensor. Presiona # para volver.");
+        key = '\0';
+      } 
+      else if (key == '2') {
+        // Mostrar el conteo actual del sensor
+        currentMenu = 6;
+        showCounter();
+        Serial.println("Mostrando conteo. Presiona # para volver.");
+        key = '\0';
+      }
+    }
+  }
+  if (currentMenu == 5 || currentMenu == 6){
+    int lecturaSensor = digitalRead(SENSOR);
+    bool sensorActivo = (lecturaSensor == LOW);
+    digitalWrite(LED4, sensorActivo ? HIGH : LOW);
+    stateLed4 = sensorActivo;
+
+    if (currentMenu == 5) {
+      // Solo mostrar si cambió el estado
+      if (sensorActivo != sensorState) {
+        sensorState = sensorActivo;
+        Serial.println(sensorState ? "SENSOR:1" : "SENSOR:0");
+        showSensorStates();
+      }
+    }
+    if (currentMenu == 6) {
+      if (sensorActivo && !lastSensorActivo) {
+        counter++;
+        showCounter();
+      }
+      if (!sensorActivo && lastSensorActivo) {
+        showCounter();
+    }
+    }
+    lastSensorActivo = sensorActivo;
+    lastSensorState = lecturaSensor;
+    if (key == '#') {
+      currentMenu = 2;
+      showSensorMenu();
+    }
+  }
+  
+
+  // LECTURA COMANDOS SERIAL
+ if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd.startsWith("LED:")) {
+      int ledNum = cmd.substring(4, 5).toInt();
+      int value = cmd.substring(6).toInt();
+
+      if (ledNum == 1) {
+        digitalWrite(LED1, value);
+        stateLed1 = value;
+        Serial.println("ACK:LED:1:" + String(value));
+        updateLed(1, value);   
+
+      } else if (ledNum == 2) {
+        digitalWrite(LED2, value);
+        stateLed2 = value;
+        Serial.println("ACK:LED:2:" + String(value));
+        updateLed(2, value); 
+
+      } else if (ledNum == 3) {
+        digitalWrite(LED3, value);
+        stateLed3 = value;
+        Serial.println("ACK:LED:3:" + String(value));
+        updateLed(3, value);
+      }
+    }
+    else if (cmd == "RESET") {
+      counter = 0;
+      Serial.println("ACK:RESET");
+      lcd.setCursor(0, 1);
+      lcd.print("RESET");
+      delay(500);
+      lcd.setCursor(0, 1);
+      lcd.print("     ");
+      sendCounter();
+    }
+  }
+
+  static unsigned long lastGet = 0;
+  if (millis() - lastGet > 10000) {
+    getDatos(); 
+    lastGet = millis();
+  }
+
+  delay(50);
 }
