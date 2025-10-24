@@ -71,7 +71,7 @@ class HistorialExportado(db.Model):
 class Dispositivo(db.Model):
     __tablename__ = "dispositivos"
     id_dispositivo = db.Column(db.Integer, primary_key=True)
-    device_id = db.Column(db.String(100), unique=True, nullable=False)
+    device_id = db.Column(db.String(255), unique=True, nullable=False)
     nombre = db.Column(db.String(100))
     token_device = db.Column(db.String(255))
     last_seen = db.Column(db.DateTime)

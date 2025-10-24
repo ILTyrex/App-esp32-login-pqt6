@@ -79,7 +79,7 @@ CREATE TABLE `historialexportado` (
 -- --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `dispositivos` (
   `id_dispositivo` int(11) NOT NULL AUTO_INCREMENT,
-  `device_id` varchar(100) NOT NULL UNIQUE,
+  `device_id` varchar(255) NOT NULL UNIQUE,
   `nombre` varchar(100) DEFAULT NULL,
   `token_device` varchar(255) DEFAULT NULL,
   `last_seen` timestamp NULL DEFAULT NULL,

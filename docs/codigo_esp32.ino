@@ -115,6 +115,130 @@ void showEstadoBDMenu()
   lcd.setCursor(0, 1);
   lcd.print("5 estados...");
 }
+
+// Formatea un evento para mostrar en 16 caracteres: "U{user} {detalle} {valor}"
+String formatEventForLCD(const String &user, const String &detalle, const String &valor)
+{
+  String s = "U" + user + " " + detalle + " " + valor;
+  // Acortar si supera 16 caracteres
+  if (s.length() > 16)
+  {
+    s = s.substring(0, 16);
+  }
+  return s;
+}
+
+// Obtiene los últimos 5 eventos del servidor y los muestra en el LCD con una animación "subiendo"
+void fetchAndShowLastEvents()
+{
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi no conectado");
+    delay(1000);
+    showEstadoBDMenu();
+    return;
+  }
+
+  HTTPClient http;
+  String url = String(baseUrl) + "/api/esp32/get-data";
+  http.begin(url);
+  int httpCode = http.GET();
+  if (httpCode != HTTP_CODE_OK)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Error al obtener");
+    lcd.setCursor(0, 1);
+    lcd.print("eventos");
+    http.end();
+    delay(1000);
+    showEstadoBDMenu();
+    return;
+  }
+
+  String payload = http.getString();
+  http.end();
+
+  StaticJsonDocument<1024> doc;
+  DeserializationError err = deserializeJson(doc, payload);
+  if (err)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("JSON error");
+    delay(1000);
+    showEstadoBDMenu();
+    return;
+  }
+
+  JsonArray arr = doc["events"].as<JsonArray>();
+  if (!arr || arr.size() == 0)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Sin eventos");
+    delay(1000);
+    showEstadoBDMenu();
+    return;
+  }
+
+  // Asegurar que procesamos en orden cronológico (del más antiguo al más reciente)
+  int n = arr.size();
+  int start = max(0, n - 5);
+
+  // Construir líneas numeradas (1..k)
+  String lines[5];
+  int idx = 0;
+  for (int i = start; i < n && idx < 5; i++)
+  {
+    JsonObject ev = arr[i];
+    String idu = String(ev["id_usuario"] | 1);
+    String detalle = String(ev["detalle"] | "");
+    String valor = String(ev["valor"] | "");
+    // Formato: "{num} U{user} {detalle} {valor}"
+    String content = String(idx + 1) + " U" + idu + " " + detalle + " " + valor;
+    if (content.length() > 16)
+      content = content.substring(0, 16);
+    lines[idx++] = content;
+  }
+
+  // Mostrar 2 primeros
+  lcd.clear();
+  if (idx >= 1)
+    lcd.setCursor(0, 0), lcd.print(lines[0]);
+  if (idx >= 2)
+    lcd.setCursor(0, 1), lcd.print(lines[1]);
+  delay(1500);
+
+  // Mostrar siguientes 2 (índice 3 y 4)
+  if (idx >= 3)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(lines[2]);
+    if (idx >= 4)
+    {
+      lcd.setCursor(0, 1);
+      lcd.print(lines[3]);
+    }
+    delay(1500);
+  }
+
+  // Mostrar el último (si existe)
+  if (idx == 5)
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(lines[4]);
+    delay(1500);
+  }
+
+  // Finalmente, volver al menú principal (0)
+  currentMenu = 0;
+  showMainMenu();
+}
 void showLedStates()
 {
   lcd.clear();
@@ -295,6 +419,8 @@ void loop()
       {
         currentMenu = 3;
         showEstadoBDMenu();
+        // Obtener y mostrar últimos 5 eventos con animación
+        fetchAndShowLastEvents();
         key = '\0';
       }
     }

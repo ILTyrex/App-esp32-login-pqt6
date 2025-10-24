@@ -56,7 +56,7 @@ def login():
     if not device:
         device = Dispositivo(
             device_id=user_agent,
-            nombre=f"Dispositivo de {user.usuario}",
+            nombre=f"{user.usuario}",
             last_seen=datetime.datetime.now(colombia_tz),
             activo=True
         )
