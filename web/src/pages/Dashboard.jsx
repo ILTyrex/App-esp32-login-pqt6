@@ -111,18 +111,45 @@ export default function Dashboard() {
   const history = historyPoints.length
     ? historyPoints
     : [{ ts: new Date().toISOString(), obstacleCount: 0 }];
-  // Mostrar solo la fecha en las etiquetas del eje X (sin hora)
-  const labels = history.map((h) =>
-    toColombiaTime(h.ts).toLocaleDateString("es-CO")
+
+  // Construir historial del estado de los LEDs a lo largo del tiempo.
+  // Mantener un objeto con el estado actual de cada LED y registrar
+  // en cada evento cuántos LEDs están encendidos (0..4). Así la
+  // barra sube cuando se enciende alguno.
+  const ledHistoryPoints = [];
+  const ledState = { LED1: false, LED2: false, LED3: false, LED4: false };
+  events.forEach((ev) => {
+    const det = ev.detalle || "";
+    // detectar eventos que afectan LEDs por tipo o por detalle
+    const isLedDetalle = /^LED[1-4]$/.test(String(det));
+    const tipo = String(ev.tipo_evento || "");
+
+    if (isLedDetalle) {
+      // ej. detalle: "LED1" y valor: "ON"/"OFF"
+      const on = String(ev.valor || "").toUpperCase() === "ON" || tipo === "LED_ON";
+      ledState[det] = on;
+    } else if (tipo === "LED_ON" || tipo === "LED_OFF") {
+      // si no hay detalle, intentar deducir a partir de "detalle" si existe
+      // cuando no se conoce qué LED, simplemente no cambiamos estados individuales
+      // (pero podrían venir eventos generales que indiquen un encendido global)
+    }
+
+    const countOn = Object.values(ledState).filter(Boolean).length;
+    ledHistoryPoints.push({ ts: ev.fecha_hora, count: countOn });
+  });
+
+  // Etiquetas con solo la fecha (hora local Colombia) — quitar la hora
+  const ledLabels = ledHistoryPoints.map((p) =>
+    toColombiaTime(p.ts).toLocaleDateString("es-CO")
   );
-  const lineData = {
-    labels,
+
+  const ledBarData = {
+    labels: ledLabels,
     datasets: [
       {
-        label: "Obstáculos",
-        data: history.map((h) => h.obstacleCount || 0),
-        borderColor: "#1e90ff",
-        tension: 0.3,
+        label: "LEDs encendidos",
+        data: ledHistoryPoints.map((p) => p.count),
+        backgroundColor: "#f97316",
       },
     ],
   };
@@ -245,9 +272,9 @@ export default function Dashboard() {
       {/* Top row: 3 charts */}
       <div style={topGridStyle}>
         <div className="card" style={cardBaseStyle}>
-          <h4>Línea (histórico obstáculos)</h4>
+          <h4>LEDs (histórico encendidos)</h4>
           <div style={{ flex: 1, minHeight: 0 }}>
-            <Line data={lineData} options={chartOptions} />
+            <Bar data={ledBarData} options={chartOptions} />
           </div>
         </div>
 
