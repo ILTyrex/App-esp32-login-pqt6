@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from ..models import Evento
 from ..extensions import db 
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 bp = Blueprint("esp32", __name__, url_prefix="/api/esp32")
 
@@ -16,13 +16,15 @@ def receive_data():
     origen = data.get("origen", "CIRCUITO")
     valor = data.get("valor", "ON")
 
+    colombia_tz = timezone(timedelta(hours=-5))
+
     evento = Evento(
         id_usuario=id_usuario,
         tipo_evento=tipo_evento,
         detalle=detalle,
         origen=origen,
         valor=valor,
-        fecha_hora=datetime.utcnow(),
+        fecha_hora=datetime.now(colombia_tz),
         origen_ip=request.remote_addr
     )
 
