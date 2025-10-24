@@ -42,10 +42,19 @@ export default function Dashboard(){
   const sensorEv = lastByDetalle['SENSOR_IR']
   const sensorOn = sensorEv ? (sensorEv.tipo_evento === 'SENSOR_BLOQUEADO' || String(sensorEv.valor).toLowerCase()==='true') : false
 
-  // compute cumulative obstacle count from events
+  // compute cumulative obstacle count and track counter evolution
   let obstacleCount = 0
   const historyPoints = [] // [{ts, obstacleCount}]
+  const counterPoints = [] // [{ts, value}]
+  const eventOrigins = { APP: 0, WEB: 0, CIRCUITO: 0 }
+
   events.forEach(ev=>{
+    // Track event origins
+    if (ev.origen) {
+      eventOrigins[ev.origen] = (eventOrigins[ev.origen] || 0) + 1
+    }
+
+    // Track obstacle count
     if(ev.tipo_evento === 'SENSOR_BLOQUEADO'){
       obstacleCount += 1
     }
@@ -53,6 +62,11 @@ export default function Dashboard(){
       obstacleCount = 0
     }
     historyPoints.push({ ts: ev.fecha_hora, obstacleCount })
+
+    // Track counter evolution
+    if(ev.tipo_evento === 'CONTADOR_CAMBIO') {
+      counterPoints.push({ ts: ev.fecha_hora, value: parseInt(ev.valor) || 0 })
+    }
   })
 
   const indicators = [
@@ -68,6 +82,26 @@ export default function Dashboard(){
 
   const barData = { labels: ['LEDs encendidos'], datasets:[{label:'LEDs', data:[ledsOnCount], backgroundColor:'#3b82f6'}] }
   const doughnutData = { labels:['Sensor Bloqueado','Sensor Libre'], datasets:[{data: sensorOn ? [1,0] : [0,1], backgroundColor:['#10b981','#ef4444']}] }
+  
+  // Nueva gráfica de dona para origen de eventos
+  const eventOriginData = {
+    labels: ['APP', 'WEB', 'CIRCUITO'],
+    datasets: [{
+      data: [eventOrigins.APP, eventOrigins.WEB, eventOrigins.CIRCUITO],
+      backgroundColor: ['#f59e0b', '#3b82f6', '#10b981']
+    }]
+  }
+
+  // Nueva gráfica de línea para evolución del contador
+  const counterData = {
+    labels: counterPoints.map(p => new Date(p.ts).toLocaleTimeString()),
+    datasets: [{
+      label: 'Valor del Contador',
+      data: counterPoints.map(p => p.value),
+      borderColor: '#8b5cf6',
+      tension: 0.3
+    }]
+  }
 
   return (
     <div>
@@ -84,6 +118,8 @@ export default function Dashboard(){
         <div className="card"><h4>Línea (histórico obstáculos)</h4><Line data={lineData} /></div>
         <div className="card"><h4>Barras (LEDs)</h4><Bar data={barData} /></div>
         <div className="card"><h4>Dona (sensor)</h4><Doughnut data={doughnutData} /></div>
+        <div className="card"><h4>Origen de eventos</h4><Doughnut data={eventOriginData} /></div>
+        <div className="card"><h4>Evolución del contador</h4><Line data={counterData} /></div>
       </div>
     </div>
   )
