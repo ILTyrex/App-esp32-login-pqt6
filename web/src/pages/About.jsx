@@ -14,7 +14,6 @@ export default function About(){
             <li>Osvaldo Ospino — Hardware y backend: montaje y programación del circuito físico, y desarrollo del backend para la app web.</li>
           </ul>
         </div>
-        <p><strong>Contacto:</strong> <a href="mailto:amorochocordoba@gmail.com">amorochocordoba@gmail.com</a></p>
       </div>
 
       <div className="card project-description">

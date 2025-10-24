@@ -5,7 +5,8 @@ const KEY = 'device_state_v1'
 
 function defaultState(){
   return {
-    leds: [false, false, false],
+    // ahora soportamos 4 leds (LED1..LED4). LED4 está conectado al sensor y es solo indicador
+    leds: [false, false, false, false],
     foco: false,
     sensor: false,
     obstacleCount: 0,
@@ -41,6 +42,12 @@ export function writeState(updates){
 }
 
 export function toggleLed(index){
+  // Prevent toggling LED4 (index 3) since it's sensor-controlled
+  if(index === 3){
+    // no-op, return current state
+    return readState()
+  }
+
   // optimistic local update
   const s = readState()
   const leds = [...s.leds]
@@ -54,6 +61,42 @@ export function toggleLed(index){
     // ignore network errors for now
   }
   return updated
+}
+
+// sincroniza el estado desde los eventos del servidor (útil para reflejar cambios originados en el CIRCUITO)
+export async function syncFromServer(){
+  try{
+    const res = await api.get('/events', { params: { limit: 200 } })
+    if(!Array.isArray(res.data)) return readState()
+    const events = res.data.slice().sort((a,b)=> new Date(a.fecha_hora) - new Date(b.fecha_hora))
+
+    const lastByDetalle = {}
+    events.forEach(ev=>{ lastByDetalle[ev.detalle] = ev })
+
+    const leds = [0,1,2,3].map(i=>{
+      const ev = lastByDetalle[`LED${i+1}`]
+      if(!ev) return false
+      return ev.tipo_evento === 'LED_ON' || String(ev.valor).toUpperCase() === 'ON' || String(ev.valor).toLowerCase() === 'true'
+    })
+
+    const sensorEv = lastByDetalle['SENSOR_IR']
+    const sensorOn = sensorEv ? (sensorEv.tipo_evento === 'SENSOR_BLOQUEADO' || String(sensorEv.valor).toLowerCase() === 'true') : false
+
+    // compute obstacleCount using CONTADOR_CAMBIO events if present
+    let obstacleCount = readState().obstacleCount || 0
+    events.forEach(ev=>{
+      if(ev.tipo_evento === 'CONTADOR_CAMBIO' && ev.detalle === 'CONTADOR'){
+        obstacleCount = parseInt(ev.valor) || obstacleCount
+      }else if(ev.tipo_evento === 'RESET_CONTADOR'){
+        obstacleCount = 0
+      }
+    })
+
+    const updated = writeState({ leds, sensor: sensorOn, obstacleCount })
+    return updated
+  }catch(e){
+    return readState()
+  }
 }
 
 export function setFoco(value){

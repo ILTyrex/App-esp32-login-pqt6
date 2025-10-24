@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { readState, writeState, createCommand, resetCounter } from '../services/device'
+import { readState, writeState, createCommand, resetCounter, syncFromServer } from '../services/device'
 import { useNavigate } from 'react-router-dom'
 
 export default function Control(){
@@ -8,8 +8,16 @@ export default function Control(){
   const navigate = useNavigate()
 
   useEffect(()=>{
-    const id = setInterval(()=> setState(readState()), 800)
-    return ()=>clearInterval(id)
+    // cada intervalo actualizamos el estado local y también tratamos de sincronizar con eventos del servidor
+    let mounted = true
+    async function tick(){
+      // sync desde servidor (si hay cambios en hardware, actualiza localStorage)
+      try{ await syncFromServer() }catch(e){}
+      if(mounted) setState(readState())
+    }
+    tick()
+    const id = setInterval(()=>{ tick() }, 800)
+    return ()=>{ mounted = false; clearInterval(id) }
   },[])
 
   async function onToggleLed(i){
@@ -73,7 +81,12 @@ export default function Control(){
               <div className="device-body">
                 <div className={`led-indicator ${l ? 'on' : 'off'}`}></div>
                 <div className="device-info">Estado: <strong>{l ? 'ON' : 'OFF'}</strong></div>
-                <button className="btn-primary" onClick={()=>onToggleLed(i)} disabled={loadingIdx===i}>{loadingIdx===i ? '...' : 'Toggle'}</button>
+                {/* LED4 (index 3) es solo indicador: no permitir toggle desde web */}
+                {i === 3 ? (
+                  <button className="btn-secondary" disabled title="Controlado por sensor (solo indicador)">Sensor</button>
+                ) : (
+                  <button className="btn-primary" onClick={()=>onToggleLed(i)} disabled={loadingIdx===i}>{loadingIdx===i ? '...' : 'Toggle'}</button>
+                )}
               </div>
             </div>
           ))}
