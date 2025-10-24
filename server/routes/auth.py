@@ -1,11 +1,14 @@
 from flask import Blueprint, request, jsonify
 from server.extensions import db
-from server.models import Usuario
+from server.models import Usuario, Evento, Dispositivo
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import datetime
+import pytz
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+colombia_tz = pytz.timezone('America/Bogota')
 
 @bp.route('/register', methods=['POST'])
 def register():
@@ -13,48 +16,84 @@ def register():
     username = data.get('usuario')
     password = data.get('contrasena')
     if not username or not password:
-        return jsonify({"error":"usuario y contrasena son requeridos"}), 400
+        return jsonify({"error": "usuario y contrasena son requeridos"}), 400
+
     if Usuario.query.filter_by(usuario=username).first():
-        return jsonify({"error":"Usuario ya existe"}), 400
+        return jsonify({"error": "Usuario ya existe"}), 400
+
     hashed = generate_password_hash(password)
     user = Usuario(usuario=username, contrasena=hashed)
     db.session.add(user)
     db.session.commit()
-    return jsonify({"msg":"usuario creado", "id_usuario": user.id_usuario}), 201
+    return jsonify({"msg": "usuario creado", "id_usuario": user.id_usuario}), 201
+
 
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
     username = data.get('usuario')
     password = data.get('contrasena')
+
     if not username or not password:
-        return jsonify({"error":"usuario y contrasena son requeridos"}), 400
+        return jsonify({"error": "usuario y contrasena son requeridos"}), 400
+
     user = Usuario.query.filter_by(usuario=username).first()
     if not user:
-        return jsonify({"error":"Credenciales inválidas"}), 401
+        return jsonify({"error": "Credenciales inválidas"}), 401
 
-    # validate password; handle legacy plain-text passwords
     valid = False
     try:
         valid = check_password_hash(user.contrasena, password)
     except ValueError:
-        # stored password not a valid hash (maybe plain text) -> fallback
         if user.contrasena == password:
             valid = True
-            # try to migrate to a secure hash
             try:
                 user.contrasena = generate_password_hash(password)
                 db.session.add(user)
                 db.session.commit()
             except Exception:
-                # don't block login if migration fails
                 pass
 
     if not valid:
-        return jsonify({"error":"Credenciales inválidas"}), 401
+        return jsonify({"error": "Credenciales inválidas"}), 401
+
     expires = datetime.timedelta(hours=8)
     access_token = create_access_token(identity=str(user.id_usuario), expires_delta=expires)
-    return jsonify({"access_token": access_token, "usuario": user.to_dict()}), 200
+
+    ip_address = request.remote_addr
+    user_agent = request.headers.get('User-Agent', 'Desconocido')
+
+    device = Dispositivo.query.filter_by(device_id=user_agent).first()
+    if not device:
+        device = Dispositivo(
+            device_id=user_agent,
+            nombre=f"Dispositivo de {user.usuario}",
+            last_seen=datetime.datetime.now(colombia_tz),
+            activo=True
+        )
+        db.session.add(device)
+    else:
+        device.last_seen = datetime.datetime.now(colombia_tz)
+        device.activo = True
+
+    ev = Evento(
+        id_usuario=user.id_usuario,
+        tipo_evento='LOGIN_USER',
+        detalle='WEB',
+        origen='WEB',
+        valor=f"Inicio de sesión desde {user_agent}",
+        origen_ip=ip_address
+    )
+    db.session.add(ev)
+    db.session.commit()
+
+    return jsonify({
+        "msg": f"Bienvenido {user.usuario}",
+        "access_token": access_token,
+        "usuario": user.to_dict(),
+        "ip": ip_address,
+        "dispositivo": user_agent
+    }), 200
 
 @bp.route('/me', methods=['GET'])
 @jwt_required()
@@ -62,5 +101,12 @@ def me():
     uid = get_jwt_identity()
     user = Usuario.query.get(uid)
     if not user:
-        return jsonify({"error":"Usuario no encontrado"}), 404
+        return jsonify({"error": "Usuario no encontrado"}), 404
     return jsonify(user.to_dict()), 200
+
+
+@bp.route('/logins', methods=['GET'])
+@jwt_required()
+def listar_logins():
+    eventos = Evento.query.filter_by(tipo_evento='LOGIN_USER').order_by(Evento.fecha_hora.desc()).all()
+    return jsonify([e.to_dict() for e in eventos]), 200
