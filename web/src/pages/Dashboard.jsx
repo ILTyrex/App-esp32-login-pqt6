@@ -156,8 +156,9 @@ export default function Dashboard() {
 
   // Nueva gráfica de línea para evolución del contador
   const counterData = {
+    // Mostrar sólo la fecha (sin la hora) en las etiquetas del eje X
     labels: counterPoints.map((p) =>
-      toColombiaTime(p.ts).toLocaleTimeString("es-CO")
+      toColombiaTime(p.ts).toLocaleDateString("es-CO")
     ),
     datasets: [
       {
