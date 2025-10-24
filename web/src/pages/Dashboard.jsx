@@ -5,6 +5,14 @@ import api from '../services/api'
 
 Chart.register(...registerables)
 
+// Función para convertir UTC a hora local de Colombia
+function toColombiaTime(utcDate) {
+  const date = new Date(utcDate);
+  // Colombia está en UTC-5
+  date.setHours(date.getHours() - 5);
+  return date;
+}
+
 export default function Dashboard(){
   const [events, setEvents] = useState([])
 
@@ -76,7 +84,7 @@ export default function Dashboard(){
     {label:'LEDs encendidos', value: ledsOnCount},
     {label:'Sensor', value: sensorOn ? 'Bloqueado' : 'Libre'},
     {label:'Obstáculos (cont.)', value: obstacleCount},
-    {label:'Última actualización', value: events.length ? new Date(events[events.length-1].fecha_hora).toLocaleString('es-CO', { 
+    {label:'Última actualización', value: events.length ? toColombiaTime(events[events.length-1].fecha_hora).toLocaleString('es-CO', { 
       hour12: true,
       hour: '2-digit',
       minute: '2-digit',
@@ -88,7 +96,7 @@ export default function Dashboard(){
   ]
 
   const history = historyPoints.length ? historyPoints : [{ts: new Date().toISOString(), obstacleCount: 0}]
-  const labels = history.map(h => new Date(h.ts).toLocaleTimeString('es-CO'))
+  const labels = history.map(h => toColombiaTime(h.ts).toLocaleTimeString('es-CO'))
   const lineData = { labels, datasets:[{label:'Obstáculos', data: history.map(h=>h.obstacleCount || 0), borderColor:'#1e90ff', tension:0.3}] }
 
   const barData = { labels: ['LEDs encendidos'], datasets:[{label:'LEDs', data:[ledsOnCount], backgroundColor:'#3b82f6'}] }
@@ -105,7 +113,7 @@ export default function Dashboard(){
 
   // Nueva gráfica de línea para evolución del contador
   const counterData = {
-    labels: counterPoints.map(p => new Date(p.ts).toLocaleTimeString('es-CO')),
+    labels: counterPoints.map(p => toColombiaTime(p.ts).toLocaleTimeString('es-CO')),
     datasets: [{
       label: 'Valor del Contador',
       data: counterPoints.map(p => p.value),
