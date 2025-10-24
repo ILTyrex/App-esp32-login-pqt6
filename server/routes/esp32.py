@@ -1,7 +1,6 @@
 from flask import Blueprint, request
 from ..models import Evento
 from ..extensions import db 
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timezone, timedelta
 
 bp = Blueprint("esp32", __name__, url_prefix="/api/esp32")
@@ -33,21 +32,16 @@ def receive_data():
     return {"msg": "Evento guardado correctamente"}, 201
 
 
-@bp.route("/secure-data", methods=["POST"])
-@jwt_required()
-def secure_data():
-    uid = get_jwt_identity()
-    data = request.get_json() or {}
-
-    evento = Evento(
-        id_usuario=uid,
-        tipo_evento=data.get("tipo_evento", "LED_OFF"),
-        detalle=data.get("detalle", "LED2"),
-        origen=data.get("origen", "APP"),
-        valor=data.get("valor", "OFF"),
-        fecha_hora=datetime.utcnow(),
-        origen_ip=request.remote_addr
+@bp.route("/get-data", methods=["GET"])
+def get_data():
+    """
+    Devuelve la tabla completa de eventos (o limitada por el parámetro `limit`).
+    Query params opcionales:
+      - limit: número máximo de eventos a devolver (por defecto devuelve todos)
+      - since: fecha ISO para filtrar desde esa fecha
+    """
+    # Devuelve solo los últimos 5 registros ordenados por fecha (más recientes primero)
+    events = (
+        Evento.query.order_by(Evento.fecha_hora.desc()).limit(5).all()
     )
-    db.session.add(evento)
-    db.session.commit()
-    return {"msg": "Evento guardado por usuario autenticado", "user": uid}, 201
+    return {"events": [e.to_dict() for e in events]}, 200

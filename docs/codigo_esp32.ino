@@ -401,6 +401,41 @@ void loop()
   // Submenú: Estados de LEDs
   if (currentMenu == 4)
   {
+    // Permitir encender LEDs desde el teclado matricial mientras estamos en el menú de estados
+    if (key)
+    {
+      if (key == '1')
+      {
+        // Toggle LED1
+        stateLed1 = !stateLed1;
+        digitalWrite(LED1, stateLed1 ? HIGH : LOW);
+        Serial.println("ACK:LED:1:" + String(stateLed1 ? "1" : "0"));
+        updateLed(1, stateLed1);
+        showLedStates();
+        key = '\0';
+      }
+      else if (key == '2')
+      {
+        // Toggle LED2
+        stateLed2 = !stateLed2;
+        digitalWrite(LED2, stateLed2 ? HIGH : LOW);
+        Serial.println("ACK:LED:2:" + String(stateLed2 ? "1" : "0"));
+        updateLed(2, stateLed2);
+        showLedStates();
+        key = '\0';
+      }
+      else if (key == '3')
+      {
+        // Toggle LED3
+        stateLed3 = !stateLed3;
+        digitalWrite(LED3, stateLed3 ? HIGH : LOW);
+        Serial.println("ACK:LED:3:" + String(stateLed3 ? "1" : "0"));
+        updateLed(3, stateLed3);
+        showLedStates();
+        key = '\0';
+      }
+    }
+
     if (key == '#')
     {
       currentMenu = 1;

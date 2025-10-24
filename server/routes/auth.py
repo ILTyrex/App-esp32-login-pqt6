@@ -76,17 +76,6 @@ def login():
         device.last_seen = datetime.datetime.now(colombia_tz)
         device.activo = True
 
-    ev = Evento(
-        id_usuario=user.id_usuario,
-        tipo_evento='LOGIN_USER',
-        detalle='WEB',
-        origen='WEB',
-        valor=f"Inicio de sesión desde {user_agent}",
-        origen_ip=ip_address
-    )
-    db.session.add(ev)
-    db.session.commit()
-
     return jsonify({
         "msg": f"Bienvenido {user.usuario}",
         "access_token": access_token,
