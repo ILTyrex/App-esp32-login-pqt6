@@ -45,7 +45,7 @@ export default function Dashboard() {
     lastByDetalle[ev.detalle] = ev;
   });
 
-  const leds = [1, 2, 3].map((i) => {
+  const leds = [1, 2, 3, 4].map((i) => {
     const ev = lastByDetalle[`LED${i}`];
     if (!ev) return false;
     // consider LED_ON / LED_OFF or valor 'ON'/'OFF'

@@ -45,8 +45,8 @@ CREATE TABLE `usuarios` (
 CREATE TABLE `eventos` (
   `id_evento` int(11) NOT NULL AUTO_INCREMENT,
   `id_usuario` int(11) NOT NULL,
-  `tipo_evento` enum('LED_ON','LED_OFF','SENSOR_BLOQUEADO','SENSOR_LIBRE','RESET_CONTADOR') NOT NULL,
-  `detalle` enum('LED1','LED2','LED3','SENSOR_IR','CONTADOR') NOT NULL,
+  `tipo_evento` enum('LED_ON','LED_OFF','SENSOR_BLOQUEADO','SENSOR_LIBRE','RESET_CONTADOR','CONTADOR_CAMBIO') NOT NULL,
+  `detalle` enum('LED1','LED2','LED3','LED4','SENSOR_IR','CONTADOR') NOT NULL,
   `origen` enum('APP','WEB','CIRCUITO') NOT NULL,
   `origen_ip` varchar(45) DEFAULT NULL,
   `valor` varchar(50) NOT NULL,
