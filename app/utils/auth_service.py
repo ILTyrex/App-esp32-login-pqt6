@@ -39,3 +39,25 @@ def verify_password(hashed_password: str, plain_password: str) -> bool:
             return ph.verify(hashed_password, plain_password)
         except (VerifyMismatchError, VerificationError, Exception):
             return False
+
+
+# Nueva función: convertir valor del sensor a etiqueta en español
+def sensor_label(sensor_value) -> str:
+    """Convertir el valor del sensor a etiqueta en español.
+
+    - True / "ON" / "1"  -> "Bloqueado"
+    - False / "OFF" / "0" -> "Libre"
+    - None / desconocido  -> "Desconocido"
+    """
+    if sensor_value is None:
+        return "Desconocido"
+    # booleano
+    if isinstance(sensor_value, bool):
+        return "Bloqueado" if sensor_value else "Libre"
+    # string / num
+    s = str(sensor_value).strip().lower()
+    if s in ("on", "1", "true", "bloqueado"):
+        return "Bloqueado"
+    if s in ("off", "0", "false", "libre"):
+        return "Libre"
+    return "Desconocido"

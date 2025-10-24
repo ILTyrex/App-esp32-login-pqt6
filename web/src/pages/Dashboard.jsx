@@ -57,7 +57,7 @@ export default function Dashboard(){
 
   const indicators = [
     {label:'LEDs encendidos', value: ledsOnCount},
-    {label:'Sensor', value: sensorOn ? 'ON' : 'OFF'},
+    {label:'Sensor', value: sensorOn ? 'Bloqueado' : 'Libre'},
     {label:'Obstáculos (cont.)', value: obstacleCount},
     {label:'Última actualización', value: events.length ? new Date(events[events.length-1].fecha_hora).toLocaleString() : '---'}
   ]
@@ -67,10 +67,7 @@ export default function Dashboard(){
   const lineData = { labels, datasets:[{label:'Obstáculos', data: history.map(h=>h.obstacleCount || 0), borderColor:'#1e90ff', tension:0.3}] }
 
   const barData = { labels: ['LEDs encendidos'], datasets:[{label:'LEDs', data:[ledsOnCount], backgroundColor:'#3b82f6'}] }
-  const doughnutData = { labels:['Sensor ON','Sensor OFF'], datasets:[{data: sensorOn ? [1,0] : [0,1], backgroundColor:['#10b981','#ef4444']}] }
-
-  const miniLine = lineData
-  const miniBar = barData
+  const doughnutData = { labels:['Sensor Bloqueado','Sensor Libre'], datasets:[{data: sensorOn ? [1,0] : [0,1], backgroundColor:['#10b981','#ef4444']}] }
 
   return (
     <div>
@@ -87,8 +84,6 @@ export default function Dashboard(){
         <div className="card"><h4>Línea (histórico obstáculos)</h4><Line data={lineData} /></div>
         <div className="card"><h4>Barras (LEDs)</h4><Bar data={barData} /></div>
         <div className="card"><h4>Dona (sensor)</h4><Doughnut data={doughnutData} /></div>
-        <div className="card"><h4>Mini Línea</h4><Line data={miniLine} /></div>
-        <div className="card"><h4>Mini Barra</h4><Bar data={miniBar} /></div>
       </div>
     </div>
   )
