@@ -76,28 +76,19 @@ export default function Dashboard(){
     {label:'LEDs encendidos', value: ledsOnCount},
     {label:'Sensor', value: sensorOn ? 'Bloqueado' : 'Libre'},
     {label:'Obstáculos (cont.)', value: obstacleCount},
-    {label:'Última actualización', value: events.length ? (() => {
-      const fecha = new Date(events[events.length-1].fecha_hora);
-      // Ajustar la hora restando 5 horas
-      fecha.setHours(fecha.getHours() - 5);
-      return fecha.toLocaleString('es-CO', { 
-        hour12: true,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    })() : '---'}
+    {label:'Última actualización', value: events.length ? new Date(events[events.length-1].fecha_hora).toLocaleString('es-CO', { 
+      hour12: true,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }) : '---'}
   ]
 
   const history = historyPoints.length ? historyPoints : [{ts: new Date().toISOString(), obstacleCount: 0}]
-  const labels = history.map(h=> {
-    const fecha = new Date(h.ts);
-    fecha.setHours(fecha.getHours() - 5);
-    return fecha.toLocaleTimeString('es-CO');
-  })
+  const labels = history.map(h => new Date(h.ts).toLocaleTimeString('es-CO'))
   const lineData = { labels, datasets:[{label:'Obstáculos', data: history.map(h=>h.obstacleCount || 0), borderColor:'#1e90ff', tension:0.3}] }
 
   const barData = { labels: ['LEDs encendidos'], datasets:[{label:'LEDs', data:[ledsOnCount], backgroundColor:'#3b82f6'}] }
@@ -114,11 +105,7 @@ export default function Dashboard(){
 
   // Nueva gráfica de línea para evolución del contador
   const counterData = {
-    labels: counterPoints.map(p => {
-      const fecha = new Date(p.ts);
-      fecha.setHours(fecha.getHours() - 5);
-      return fecha.toLocaleTimeString('es-CO');
-    }),
+    labels: counterPoints.map(p => new Date(p.ts).toLocaleTimeString('es-CO')),
     datasets: [{
       label: 'Valor del Contador',
       data: counterPoints.map(p => p.value),

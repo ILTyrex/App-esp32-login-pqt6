@@ -1,5 +1,11 @@
 from .extensions import db
 from datetime import datetime
+import pytz
+
+colombia_tz = pytz.timezone('America/Bogota')
+
+def get_colombia_time():
+    return datetime.now(colombia_tz)
 
 class Usuario(db.Model):
     __tablename__ = "usuarios"
@@ -33,7 +39,7 @@ class Evento(db.Model):
     origen = db.Column(db.Enum("APP", "WEB", "CIRCUITO"), nullable=False)
     valor = db.Column(db.String(50), nullable=False)
     origen_ip = db.Column(db.String(45), nullable=True)
-    fecha_hora = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_hora = db.Column(db.DateTime, default=get_colombia_time)
 
     def to_dict(self):
         return {
