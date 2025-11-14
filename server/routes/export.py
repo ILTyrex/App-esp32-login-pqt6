@@ -36,5 +36,11 @@ def export_csv():
         db.session.add(reg)
         db.session.commit()
         return send_file(io.BytesIO(si.getvalue().encode('utf-8')), mimetype='text/csv', as_attachment=True, download_name=f'export_{datetime.datetime.utcnow().isoformat()}.csv')
+    elif formato == 'PDF':
+        # The client performs PDF generation locally; here we only record the export in the history
+        reg = HistorialExportado(id_usuario=user, formato='PDF')
+        db.session.add(reg)
+        db.session.commit()
+        return jsonify({"ok": True, "message": "Exportación registrada como PDF"}), 200
     else:
         return jsonify({"error":"Formato no soportado"}), 400

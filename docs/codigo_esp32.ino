@@ -580,8 +580,6 @@ void setup()
   lastSensorState = digitalRead(SENSOR);
 
   connectWiFi();
-  currentUser = "David"; // ← Aquí luego pondrás el nombre recibido de la app
-  showWelcomeUser();
   delay(2000);
   showMainMenu();
 }
