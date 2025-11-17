@@ -1,9 +1,16 @@
+/*************  BLYNK CONFIG  *************/
+#define BLYNK_TEMPLATE_ID "TMPL23ObRzr_p"
+#define BLYNK_TEMPLATE_NAME "test"
+#define BLYNK_AUTH_TOKEN "1yABWzFqZjrQQuFA3djFakvdUPuvYuAF"
+#define BLYNK_PRINT Serial
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Keypad.h>
 #include <Wire.h>
 #include <LiquidCrystal_PCF8574.h>
+#include <BlynkSimpleEsp32.h>
 
 LiquidCrystal_PCF8574 lcd(0x27);
 
@@ -49,11 +56,11 @@ int currentMenu = 0;     // 0 = menú principal, 1 = LED, 2 = Sensor, 3 = Estado
 String currentUser = ""; // Nombre del usuario logueado
 
 // Wifi
-const char *ssid = "Redmi Note 13"; // Nombre de la red que te vas a conectar
-const char *password = "3004400219";
-const char *baseUrl = "http://10.130.199.140:5000"; // La ip y el puerto de la pc
-bool wifiConnected = false;                         // Estado actual del WiFi
-unsigned long lastWiFiCheck = 0;                    // Para revisar conexión cada cierto tiempo
+const char *ssid = "DANIEL"; // wifi
+const char *password = "1974mia@"; // Contraseña del hotspot
+const char *baseUrl = "http://10.92.129.180:5000"; // IP actual
+bool wifiConnected = false;
+unsigned long lastWiFiCheck = 0;
 
 // TECLADO MATRICIAL
 const byte ROWS = 4;
@@ -66,6 +73,59 @@ char keys[ROWS][COLS] = {
 byte rowPins[ROWS] = {13, 12, 14, 27}; // Filas
 byte colPins[COLS] = {26, 25, 33, 32}; // Columnas
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+/*************  THINGSPEAK CONFIG  *************/
+const char* thingSpeakServer = "api.thingspeak.com";
+const char* thingSpeakApiKey = "XL83F0HE31DAECM7";
+const unsigned long thingSpeakChannel = 3163824;
+unsigned long lastThingSpeakUpdate = 0;
+const unsigned long THINGSPEAK_INTERVAL = 10000;
+
+void sendToThingSpeak() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi no conectado - no se puede enviar a ThingSpeak");
+    return;
+  }
+
+  HTTPClient http;
+
+  // Construir URL con todos los campos
+  String url = "https://";
+  url += thingSpeakServer;
+  url += "/update?api_key=";
+  url += thingSpeakApiKey;
+  url += "&field1=";
+  url += stateLed1 ? "1" : "0";  // LED1
+  url += "&field2=";
+  url += stateLed2 ? "1" : "0";  // LED2
+  url += "&field3=";
+  url += stateLed3 ? "1" : "0";  // LED3
+  url += "&field4=";
+  url += stateLed4 ? "1" : "0";  // LED4_sensor
+  url += "&field5=";
+  url += String(counter);         // Contador
+
+  Serial.println("Enviando a ThingSpeak: " + url);
+
+  http.begin(url);
+  int httpCode = http.GET();
+
+  if (httpCode > 0) {
+    String payload = http.getString();
+    Serial.println("ThingSpeak respuesta: " + payload);
+
+    // Si devuelve un número (1,2,3,etc) significa éxito
+    if (payload.toInt() > 0) {
+      Serial.println("✓ Datos enviados exitosamente a ThingSpeak");
+    } else {
+      Serial.println("✗ Error en ThingSpeak: " + payload);
+    }
+  } else {
+    Serial.println("✗ Error HTTP al conectar con ThingSpeak: " + String(httpCode));
+  }
+
+  http.end();
+}
 
 // Funciones LCD
 void showWelcomeUser()
@@ -122,7 +182,7 @@ void showEstadoBDMenu()
 }
 
 // Formatea un evento para mostrar en 16 caracteres: "U{user} {detalle} {valor}"
-String formatEventForLCD(const String &user, const String &detalle, const String &valor)
+/* String formatEventForLCD(const String &user, const String &detalle, const String &valor)
 {
   String s = "U" + user + " " + detalle + " " + valor;
   // Acortar si supera 16 caracteres
@@ -248,6 +308,9 @@ void fetchAndShowLastEvents()
   currentMenu = 0;
   showMainMenu();
 }
+
+*/
+
 void showLedStates()
 {
   lcd.clear();
@@ -316,7 +379,9 @@ void checkWiFiStatus()
     }
   }
 }
-void sendEvent(String tipo_evento, String detalle, String valor)
+
+
+/* void sendEvent(String tipo_evento, String detalle, String valor)
 {
   if (WiFi.status() == WL_CONNECTED)
   {
@@ -351,19 +416,127 @@ void sendEvent(String tipo_evento, String detalle, String valor)
     Serial.println("WiFi no conectado, no se puede enviar evento");
   }
 }
+
+*/
+
 void sendCounter()
 {
-  sendEvent("CONTADOR_CAMBIO", "CONTADOR", String(counter));
+  //sendEvent("CONTADOR_CAMBIO", "CONTADOR", String(counter));
+  Blynk.virtualWrite(V4, counter);
 }
+
+
+bool localChange = false;
+
 void updateLed(int ledNum, bool estado)
 {
   String ledStr = "LED" + String(ledNum);
   String estadoStr = estado ? "ON" : "OFF";
-  sendEvent("LED_" + estadoStr, ledStr, estadoStr);
+
+  // Enviar evento HTTP solo si hay WiFi
+  if (WiFi.status() == WL_CONNECTED) {
+    //sendEvent("LED_" + estadoStr, ledStr, estadoStr);
+  }
+
+  // IMPORTANTE: Marcar que este cambio viene del ESP32
+  localChange = true;
+
+  // Actualizar Blynk
+  if (ledNum >= 1 && ledNum <= 4) {
+    Blynk.virtualWrite(V0 + (ledNum - 1), estado ? 1 : 0);
+  }
+
+  // Restaurar la bandera después de un breve delay
+  delay(10);
+  localChange = false;
 }
 
-// Consulta al servidor por el último evento WEB de tipo LED_ON/LED_OFF
-void pollLastEvent()
+BLYNK_WRITE(V0) {
+
+  if (localChange) return;
+
+  int value = param.asInt();
+  stateLed1 = value;
+  digitalWrite(LED1, value ? HIGH : LOW);
+  Serial.println("Blynk LED1: " + String(value));
+
+  // Actualizar pantalla si estamos en menú de LEDs
+  if (currentMenu == 1 || currentMenu == 4) {
+    showLedStates();
+    if (currentMenu == 1) {
+      delay(50);
+      showLedMenu();
+    }
+  }
+}
+
+BLYNK_WRITE(V1) {
+  if (localChange) return;
+
+  int value = param.asInt();
+  stateLed2 = value;
+  digitalWrite(LED2, value ? HIGH : LOW);
+  Serial.println("Blynk LED2: " + String(value));
+
+  if (currentMenu == 1 || currentMenu == 4) {
+    showLedStates();
+    if (currentMenu == 1) {
+      delay(50);
+      showLedMenu();
+    }
+  }
+}
+
+BLYNK_WRITE(V2) {
+  if (localChange) return;
+
+  int value = param.asInt();
+  stateLed3 = value;
+  digitalWrite(LED3, value ? HIGH : LOW);
+  Serial.println("Blynk LED3: " + String(value));
+
+  if (currentMenu == 1 || currentMenu == 4) {
+    showLedStates();
+    if (currentMenu == 1) {
+      delay(50);
+      showLedMenu();
+    }
+  }
+}
+
+BLYNK_WRITE(V3) {
+  if (localChange) return;
+
+  int value = param.asInt();
+  stateLed4 = value;
+  digitalWrite(LED4, value ? HIGH : LOW);
+  Serial.println("Blynk LED4: " + String(value));
+}
+
+BLYNK_WRITE(V6) {
+  int value = param.asInt();
+  if (value == 1) {
+    counter = 0;
+    Blynk.virtualWrite(V4, 0);
+    Serial.println("Blynk: Contador reseteado");
+
+    if (WiFi.status() == WL_CONNECTED) {
+      //sendEvent("RESET_CONTADOR", "CONTADOR", "0");
+    }
+
+    // Actualizar pantalla si estamos en menú de contador
+    if (currentMenu == 6) {
+      showCounter();
+    }
+  }
+}
+
+void updateBlynkSensor() {
+  Blynk.virtualWrite(V5, sensorState ? 1 : 0);
+}
+
+/*
+ void pollLastEvent()
 {
   if (WiFi.status() != WL_CONNECTED)
     return;
@@ -551,6 +724,7 @@ void pollLastEvent()
     http.end();
   }
 }
+*/
 
 void setup()
 {
@@ -579,13 +753,55 @@ void setup()
 
   lastSensorState = digitalRead(SENSOR);
 
-  connectWiFi();
-  delay(2000);
+  // Conectar WiFi primero
+  WiFi.begin(ssid, password);
+  Serial.println("Conectando a WiFi...");
+
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    Serial.print(".");
+    attempts++;
+  }
+
+   if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi conectado!");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+
+    // Conectar a Blynk
+    Blynk.config(BLYNK_AUTH_TOKEN);
+    Blynk.connect();
+
+    delay(1000); // Esperar conexión Blynk
+    Blynk.virtualWrite(V0, stateLed1 ? 1 : 0);
+    Blynk.virtualWrite(V1, stateLed2 ? 1 : 0);
+    Blynk.virtualWrite(V2, stateLed3 ? 1 : 0);
+    Blynk.virtualWrite(V3, stateLed4 ? 1 : 0);
+    Blynk.virtualWrite(V4, counter);
+    Blynk.virtualWrite(V5, sensorState ? 1 : 0);
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi + Blynk OK");
+    lcd.setCursor(0, 1);
+    lcd.print(WiFi.localIP());
+    delay(2000);
+  } else {
+    Serial.println("\nError: No se pudo conectar al WiFi");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi ERROR");
+    delay(2000);
+  }
+
   showMainMenu();
 }
 
 void loop()
 {
+  // Mantener Blynk conectado
+  Blynk.run();
 
   checkWiFiStatus();
 
@@ -617,8 +833,8 @@ void loop()
         currentMenu = 3;
         showEstadoBDMenu();
         // Obtener y mostrar últimos 5 eventos con animación
-        fetchAndShowLastEvents();
-        key = '\0';
+        //fetchAndShowLastEvents();
+        //key = '\0';
       }
     }
   }
@@ -652,7 +868,7 @@ void loop()
         updateLed(2, stateLed2);
         updateLed(3, stateLed3);
         showLedStates();
-        delay(500);
+        delay(100);
         showLedMenu();
       }
       else if (key == '2')
@@ -669,7 +885,7 @@ void loop()
         updateLed(2, stateLed2);
         updateLed(3, stateLed3);
         showLedStates();
-        delay(500);
+        delay(100);
         showLedMenu();
       }
       else if (key == '3')
@@ -689,7 +905,7 @@ void loop()
       updateLed(1, stateLed1);
       // Actualizar LCD para reflejar el nuevo estado (igual que al cambiar por teclado)
       showLedStates();
-      delay(500);
+      delay(100);
       showLedMenu();
     }
     lastBtn1 = btn1;
@@ -702,7 +918,7 @@ void loop()
       updateLed(2, stateLed2);
       // Actualizar LCD para reflejar el nuevo estado (igual que al cambiar por teclado)
       showLedStates();
-      delay(500);
+      delay(100);
       showLedMenu();
     }
     lastBtn2 = btn2;
@@ -715,7 +931,7 @@ void loop()
       updateLed(3, stateLed3);
       // Actualizar LCD para reflejar el nuevo estado (igual que al cambiar por teclado)
       showLedStates();
-      delay(500);
+      delay(100);
       showLedMenu();
     }
     lastBtn3 = btn3;
@@ -805,7 +1021,6 @@ void loop()
     {
       if (key == '1')
       {
-        // Mostrar estados del sensor y LED4
         currentMenu = 5;
         showSensorStates();
         Serial.println("Mostrando estado de sensor. Presiona # para volver.");
@@ -845,7 +1060,8 @@ void loop()
         String tipo_evento = sensorState ? "SENSOR_BLOQUEADO" : "SENSOR_LIBRE";
         String valor = sensorState ? "ON" : "OFF";
 
-        sendEvent(tipo_evento, "SENSOR_IR", valor);
+        //sendEvent(tipo_evento, "SENSOR_IR", valor);
+        Blynk.virtualWrite(V5, sensorState ? 1 : 0);
       }
       if (sensorActivo && !lastSensorActivo)
       {
@@ -855,17 +1071,18 @@ void loop()
     }
     if (currentMenu == 6)
     {
-      // Enviar evento si cambió el estado del sensor (bloqueado/libre)
+
       if (sensorActivo != sensorState)
       {
         sensorState = sensorActivo;
         Serial.println(sensorState ? "SENSOR:1" : "SENSOR:0");
-        // En el menú 6 mostramos el contador, así que actualizamos la pantalla del conteo
         showCounter();
 
         String tipo_evento = sensorState ? "SENSOR_BLOQUEADO" : "SENSOR_LIBRE";
         String valor = sensorState ? "ON" : "OFF";
-        sendEvent(tipo_evento, "SENSOR_IR", valor);
+        //sendEvent(tipo_evento, "SENSOR_IR", valor);
+        Blynk.virtualWrite(V5, sensorState ? 1 : 0);
+
       }
 
       // Lógica de conteo: si el sensor pasó de no activo a activo incrementa el contador
@@ -941,8 +1158,9 @@ void loop()
   if (millis() - lastGet > EVENT_POLL_INTERVAL)
   {
     lastGet = millis();
-    pollLastEvent();
+    //pollLastEvent();
+    sendToThingSpeak();
   }
 
-  delay(50);
+  delay(10);
 }
